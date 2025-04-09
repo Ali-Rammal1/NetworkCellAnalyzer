@@ -5,8 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.LocationManager
-import android.os.Build
-import android.os.Bundle
+import android.os.*
 import android.provider.Settings
 import android.telephony.*
 import android.util.Log
@@ -30,6 +29,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var frequencyBandText: TextView
     private lateinit var cellIdText: TextView
     private lateinit var timestampText: TextView
+
+    private lateinit var telephonyManager: TelephonyManager
 
     private val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         arrayOf(
@@ -57,6 +58,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val fetchHandler = Handler(Looper.getMainLooper())
+    private val fetchRunnable = object : Runnable {
+        override fun run() {
+            checkPermissionsAndFetchCellInfo()
+            fetchHandler.postDelayed(this, 10000)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -74,6 +83,17 @@ class MainActivity : ComponentActivity() {
         fetchButton.setOnClickListener {
             checkPermissionsAndFetchCellInfo()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        fetchHandler.post(fetchRunnable)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        fetchHandler.removeCallbacks(fetchRunnable)
     }
 
     private fun checkPermissionsAndFetchCellInfo() {
@@ -102,8 +122,6 @@ class MainActivity : ComponentActivity() {
             startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             return
         }
-
-        val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
 
         val dateFormat = SimpleDateFormat("dd MMM yyyy hh:mm a", Locale.getDefault())
         val timestamp = dateFormat.format(Date())
@@ -146,13 +164,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun displayUnavailable() {
-        signalPowerText.text = "Not available"
-        sinrText.text = "Not available"
-        frequencyBandText.text = "Not available"
-        cellIdText.text = "Not available"
-    }
-
     private fun processCellInfo(cellInfoList: List<CellInfo>) {
         for (cellInfo in cellInfoList) {
             when {
@@ -165,6 +176,14 @@ class MainActivity : ComponentActivity() {
                     process5GCellInfo(cellInfo)
                     return
                 }
+                cellInfo is CellInfoWcdma && cellInfo.isRegistered -> {
+                    processWcdmaCellInfo(cellInfo)
+                    return
+                }
+                cellInfo is CellInfoGsm && cellInfo.isRegistered -> {
+                    processGsmCellInfo(cellInfo)
+                    return
+                }
             }
         }
         displayUnavailable()
@@ -174,18 +193,23 @@ class MainActivity : ComponentActivity() {
         val identity = cellInfo.cellIdentity as? CellIdentityLte
         val signal = cellInfo.cellSignalStrength as? CellSignalStrengthLte
 
-        val signalStrength = signal?.dbm ?: -999
-        val sinr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) signal?.rssnr ?: -999 else -999
+        val dbm = signal?.dbm ?: -999
+
+        val rssnr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val value = signal?.rssnr ?: -999
+            if (value == Integer.MAX_VALUE || value == -999) null else value
+        } else null
+
         val earfcn = identity?.earfcn ?: -1
         val tac = identity?.tac ?: -1
         val ci = identity?.ci ?: -1
 
-        signalPowerText.text = if (signalStrength > -999) "$signalStrength dBm" else "Not available"
-        sinrText.text = if (sinr > -999) "$sinr dB" else "Not available"
+        signalPowerText.text = if (dbm > -999) "$dbm dBm" else "Not available"
+        sinrText.text = rssnr?.let { "$it dB" } ?: "Not available"
         frequencyBandText.text = if (earfcn >= 0) getLteBandFromEarfcn(earfcn) else "Not available"
-        cellIdText.text = if (tac >= 0 && ci >= 0) "$tac-$ci" else "Not available"
+        cellIdText.text = if (tac >= 0 && ci >= 0) String.format("%05d-%08d", tac, ci) else "Not available"
 
-        Log.d("CellInfo", "EARFCN=$earfcn, TAC=$tac, CI=$ci, RSSNR=$sinr, DBM=$signalStrength")
+        Log.d("CellInfo", "EARFCN=$earfcn, RSSNR=$rssnr")
     }
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
@@ -193,18 +217,53 @@ class MainActivity : ComponentActivity() {
         val identity = cellInfo.cellIdentity as? CellIdentityNr
         val signal = cellInfo.cellSignalStrength as? CellSignalStrengthNr
 
-        val signalStrength = signal?.dbm ?: -999
-        val sinr = signal?.csiSinr ?: -999
-        val nrarfcn = identity?.nrarfcn ?: -1
+        val dbm = signal?.dbm ?: -999
+        val sinr = signal?.csiSinr?.takeIf { it != Integer.MAX_VALUE } ?: -999
+        val nrarfcn = identity?.nrarfcn?.takeIf { it > 0 } ?: -1
         val tac = identity?.tac ?: -1
         val nci = identity?.nci ?: -1
 
-        signalPowerText.text = if (signalStrength > -999) "$signalStrength dBm" else "Not available"
-        sinrText.text = if (sinr > -999) "$sinr dB" else "Not available"
-        frequencyBandText.text = if (nrarfcn >= 0) getNrBandFromNrarfcn(nrarfcn) else "Not available"
-        cellIdText.text = if (tac >= 0 && nci >= 0) "$tac-$nci" else "Not available"
+        signalPowerText.text = if (dbm > -999) "$dbm dBm" else "Not available"
+        sinrText.text = if (sinr != -999) "$sinr dB" else "Not available"
+        frequencyBandText.text = if (nrarfcn > 0) getNrBandFromNrarfcn(nrarfcn) else "Not available"
+        cellIdText.text = if (tac >= 0 && nci >= 0) String.format("%05d-%08d", tac, nci) else "Not available"
 
-        Log.d("CellInfo5G", "NRARFCN=$nrarfcn, TAC=$tac, NCI=$nci, SINR=$sinr, DBM=$signalStrength")
+        Log.d("CellInfo5G", "NRARFCN=$nrarfcn, SINR=$sinr")
+    }
+
+    private fun processWcdmaCellInfo(cellInfo: CellInfoWcdma) {
+        val identity = cellInfo.cellIdentity as? CellIdentityWcdma
+        val signal = cellInfo.cellSignalStrength as? CellSignalStrengthWcdma
+
+        val dbm = signal?.dbm ?: -999
+        val lac = identity?.lac ?: -1
+        val cid = identity?.cid ?: -1
+
+        signalPowerText.text = "$dbm dBm"
+        sinrText.text = "Not available"
+        frequencyBandText.text = "Unknown"
+        cellIdText.text = if (lac >= 0 && cid >= 0) String.format("%05d-%08d", lac, cid) else "Not available"
+    }
+
+    private fun processGsmCellInfo(cellInfo: CellInfoGsm) {
+        val identity = cellInfo.cellIdentity as? CellIdentityGsm
+        val signal = cellInfo.cellSignalStrength as? CellSignalStrengthGsm
+
+        val dbm = signal?.dbm ?: -999
+        val lac = identity?.lac ?: -1
+        val cid = identity?.cid ?: -1
+
+        signalPowerText.text = "$dbm dBm"
+        sinrText.text = "Not available"
+        frequencyBandText.text = "Unknown"
+        cellIdText.text = if (lac >= 0 && cid >= 0) String.format("%05d-%08d", lac, cid) else "Not available"
+    }
+
+    private fun displayUnavailable() {
+        signalPowerText.text = "Not available"
+        sinrText.text = "Not available"
+        frequencyBandText.text = "Not available"
+        cellIdText.text = "Not available"
     }
 
     private fun getNetworkTypeString(networkType: Int): String {
@@ -214,6 +273,7 @@ class MainActivity : ComponentActivity() {
             TelephonyManager.NETWORK_TYPE_CDMA,
             TelephonyManager.NETWORK_TYPE_1xRTT,
             TelephonyManager.NETWORK_TYPE_IDEN -> "2G"
+
             TelephonyManager.NETWORK_TYPE_UMTS,
             TelephonyManager.NETWORK_TYPE_EVDO_0,
             TelephonyManager.NETWORK_TYPE_EVDO_A,
@@ -223,6 +283,7 @@ class MainActivity : ComponentActivity() {
             TelephonyManager.NETWORK_TYPE_EVDO_B,
             TelephonyManager.NETWORK_TYPE_EHRPD,
             TelephonyManager.NETWORK_TYPE_HSPAP -> "3G"
+
             TelephonyManager.NETWORK_TYPE_LTE -> "4G"
             TelephonyManager.NETWORK_TYPE_NR -> "5G"
             else -> "Unknown"
@@ -239,7 +300,8 @@ class MainActivity : ComponentActivity() {
             earfcn in 2750..3449 -> "7 (2600MHz)"
             earfcn in 3450..3799 -> "8 (900MHz)"
             earfcn in 6150..6449 -> "20 (800MHz)"
-            else -> "Unknown ($earfcn)"
+            earfcn in 65536..66435 -> "66 (AWS-3)"
+            else -> "Unknown EARFCN ($earfcn)"
         }
     }
 
@@ -255,7 +317,7 @@ class MainActivity : ComponentActivity() {
             nrarfcn in 620000..680000 -> "n41 (2500MHz)"
             nrarfcn in 2054166..2104165 -> "n77 (3.7GHz)"
             nrarfcn in 2104166..2154165 -> "n78 (3.5GHz)"
-            else -> "Unknown ($nrarfcn)"
+            else -> "Unknown NRARFCN ($nrarfcn)"
         }
     }
 }
