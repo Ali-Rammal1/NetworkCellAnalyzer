@@ -15,6 +15,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import com.google.android.material.button.MaterialButton
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -35,12 +38,14 @@ class MainActivity : ComponentActivity() {
     private val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         arrayOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.READ_PHONE_STATE
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.INTERNET
         )
     } else {
         arrayOf(
             Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.READ_PHONE_STATE
+            Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.INTERNET
         )
     }
 
@@ -88,6 +93,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        checkPermissionsAndFetchCellInfo() // ensure first fetch triggers permission check
         fetchHandler.post(fetchRunnable)
     }
 
@@ -162,7 +168,43 @@ class MainActivity : ComponentActivity() {
         } else {
             displayUnavailable()
         }
+
+        val dataToSend = mapOf(
+            "operator" to operatorText.text.toString(),
+            "signalPower" to signalPowerText.text.toString(),
+            "sinr" to sinrText.text.toString(),
+            "networkType" to networkTypeText.text.toString(),
+            "frequencyBand" to frequencyBandText.text.toString(),
+            "cellId" to cellIdText.text.toString(),
+            "timestamp" to timestampText.text.toString()
+        )
+        sendDataToServer(dataToSend)
     }
+
+    private fun sendDataToServer(data: Map<String, String>) {
+        Thread {
+            try {
+                val json = JSONObject(data)
+                val url = URL("http://192.168.1.35:5000/upload") // Change to your server IP if using a real device
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json; utf-8")
+                conn.doOutput = true
+
+                val output = conn.outputStream
+                output.write(json.toString().toByteArray(Charsets.UTF_8))
+                output.flush()
+                output.close()
+
+                val responseCode = conn.responseCode
+                Log.d("HTTP", "POST Response Code: $responseCode")
+                conn.disconnect()
+            } catch (e: Exception) {
+                Log.e("HTTP", "Error sending data: ${e.message}")
+            }
+        }.start()
+    }
+
 
     private fun processCellInfo(cellInfoList: List<CellInfo>) {
         for (cellInfo in cellInfoList) {
@@ -321,3 +363,5 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+
