@@ -17,16 +17,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        setContent {
-            NetworkCellAnalyzerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
-                }
-            }
-        }
+        setContentView(R.layout.activity_main)
+
     }
 }
 
@@ -36,6 +28,8 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
         text = "Hello $name!",
         modifier = modifier
     )
+    //val info = getCellInfo(context)
+
 }
 
 @Preview(showBackground = true)
@@ -45,3 +39,5 @@ fun GreetingPreview() {
         Greeting("Android")
     }
 }
+
+
