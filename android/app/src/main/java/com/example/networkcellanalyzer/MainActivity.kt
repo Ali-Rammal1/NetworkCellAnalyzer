@@ -176,8 +176,11 @@ class MainActivity : ComponentActivity() {
             "networkType" to networkTypeText.text.toString(),
             "frequencyBand" to frequencyBandText.text.toString(),
             "cellId" to cellIdText.text.toString(),
-            "timestamp" to timestampText.text.toString()
+            "timestamp" to timestampText.text.toString(),
+            "ipAddress" to getLocalIpAddress(),
+            "macAddress" to getMacAddress()
         )
+
         sendDataToServer(dataToSend)
     }
 
@@ -185,7 +188,9 @@ class MainActivity : ComponentActivity() {
         Thread {
             try {
                 val json = JSONObject(data)
-                val url = URL("http://192.168.1.36:5000/upload") // Change to your server IP if using a real device
+                val url = URL("http://192.168.1.44:5000/upload") // Change to your server IP if using a real device
+                //val url = URL("https://key-pigeon-creative.ngrok-free.app/upload")
+
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json; utf-8")
@@ -283,8 +288,17 @@ class MainActivity : ComponentActivity() {
 
         signalPowerText.text = "$dbm dBm"
         sinrText.text = "Not available"
-        frequencyBandText.text = "Unknown"
+        val uarfcn = identity?.uarfcn ?: -1
+        frequencyBandText.text = if (uarfcn >= 0) getWcdmaBandFromUarfcn(uarfcn) else "Not available"
+
         cellIdText.text = if (lac >= 0 && cid >= 0) String.format("%05d-%08d", lac, cid) else "Not available"
+    }
+    private fun getWcdmaBandFromUarfcn(uarfcn: Int): String {
+        return when (uarfcn) {
+            in 10562..10838 -> "1 (2100MHz)"
+            in 9662..9938   -> "8 (900MHz)"
+            else -> "Unknown UARFCN ($uarfcn)"
+        }
     }
 
     private fun processGsmCellInfo(cellInfo: CellInfoGsm) {
@@ -297,8 +311,19 @@ class MainActivity : ComponentActivity() {
 
         signalPowerText.text = "$dbm dBm"
         sinrText.text = "Not available"
-        frequencyBandText.text = "Unknown"
+        val arfcn = identity?.arfcn ?: -1
+        frequencyBandText.text = if (arfcn >= 0) getGsmBandFromArfcn(arfcn) else "Not available"
+
         cellIdText.text = if (lac >= 0 && cid >= 0) String.format("%05d-%08d", lac, cid) else "Not available"
+    }
+    private fun getGsmBandFromArfcn(arfcn: Int): String {
+        return when (arfcn) {
+            in 1..124       -> "GSM 900 MHz"
+            in 512..885     -> "DCS 1800 MHz"
+            in 128..251     -> "GSM 850 MHz"
+            in 512..810     -> "PCS 1900 MHz"
+            else -> "Unknown ARFCN ($arfcn)"
+        }
     }
 
     private fun displayUnavailable() {
@@ -362,6 +387,41 @@ class MainActivity : ComponentActivity() {
             else -> "Unknown NRARFCN ($nrarfcn)"
         }
     }
+
+
+    private fun getLocalIpAddress(): String {
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            for (intf in interfaces) {
+                val addrs = intf.inetAddresses
+                for (addr in addrs) {
+                    if (!addr.isLoopbackAddress && addr is java.net.Inet4Address) {
+                        return addr.hostAddress ?: "Unknown"
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("IP", "Error getting IP: ${e.message}")
+        }
+        return "Unknown"
+    }
+    private fun getMacAddress(): String {
+        return try {
+            val all = java.net.NetworkInterface.getNetworkInterfaces()
+            for (intf in all) {
+                if (intf.name.equals("wlan0", ignoreCase = true)) {
+                    val mac = intf.hardwareAddress ?: return "Unavailable"
+                    return mac.joinToString(":") { "%02X".format(it) }
+                }
+            }
+            "Unavailable"
+        } catch (e: Exception) {
+            "Unavailable"
+        }
+    }
+
+
+
 }
 
 

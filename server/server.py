@@ -7,13 +7,24 @@ def receive_cell_data():
     data = request.get_json()
 
     if not data:
-        return jsonify({'status': 'error', 'message': 'No JSON ddddata received'}), 400
+        return jsonify({'status': 'error', 'message': 'No JSON data received'}), 400
 
     print("📡 Received Cell Data:")
     for key, value in data.items():
         print(f"{key}: {value}")
 
-    return jsonify({'status': 'success', 'message': 'Data received'}), 200
+    # Fix: Match keys exactly as sent from Android
+    user_ip = data.get('ipAddress', 'Unknown')
+    user_mac = data.get('macAddress', 'Unknown')
+
+   # print(f"🔌 Device Info — IP: {user_ip}, MAC: {user_mac}")
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Data received',
+        'user_ip': user_ip,
+        'user_mac': user_mac
+    }), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
