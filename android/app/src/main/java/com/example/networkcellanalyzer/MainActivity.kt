@@ -331,6 +331,7 @@ class MainActivity : ComponentActivity() {
 
         Log.d("CellInfoWCDMA", "UARFCN=$uarfcn, Quality=$signalQuality")
     }
+    //test
     private fun getWcdmaBandFromUarfcn(uarfcn: Int): String {
         return when (uarfcn) {
             in 10562..10838 -> "1 (2100MHz)"
