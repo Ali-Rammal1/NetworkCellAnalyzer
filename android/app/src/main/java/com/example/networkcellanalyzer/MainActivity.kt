@@ -185,7 +185,7 @@ class MainActivity : ComponentActivity() {
         Thread {
             try {
                 val json = JSONObject(data)
-                val url = URL("http://192.168.1.35:5000/upload") // Change to your server IP if using a real device
+                val url = URL("http://192.168.1.36:5000/upload") // Change to your server IP if using a real device
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json; utf-8")
