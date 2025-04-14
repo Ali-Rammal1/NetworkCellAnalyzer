@@ -242,17 +242,35 @@ class MainActivity : ComponentActivity() {
 
         val dbm = signal?.dbm ?: -999
 
+        // Modified RSSNR handling
         val rssnr = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val value = signal?.rssnr ?: -999
-            if (value == Integer.MAX_VALUE || value == -999) null else value
-        } else null
+            signal?.rssnr
+        } else {
+            try {
+                // For older Android versions, try to get RSSNR via reflection
+                val rssnrMethod = CellSignalStrengthLte::class.java.getDeclaredMethod("getRssnr")
+                rssnrMethod.isAccessible = true
+                rssnrMethod.invoke(signal) as Int
+            } catch (e: Exception) {
+                Log.e("CellInfo", "Error getting RSSNR: ${e.message}")
+                null
+            }
+        }
 
         val earfcn = identity?.earfcn ?: -1
         val tac = identity?.tac ?: -1
         val ci = identity?.ci ?: -1
 
         signalPowerText.text = if (dbm > -999) "$dbm dBm" else "Not available"
-        sinrText.text = rssnr?.let { "$it dB" } ?: "Not available"
+
+        // Better handling of RSSNR values
+        sinrText.text = when {
+            rssnr == null -> "Not available"
+            rssnr == Integer.MAX_VALUE -> "Not available"
+            rssnr == -999 -> "Not available"
+            else -> "$rssnr dB"
+        }
+
         frequencyBandText.text = if (earfcn >= 0) getLteBandFromEarfcn(earfcn) else "Not available"
         cellIdText.text = if (tac >= 0 && ci >= 0) String.format("%05d-%08d", tac, ci) else "Not available"
 
@@ -286,12 +304,32 @@ class MainActivity : ComponentActivity() {
         val lac = identity?.lac ?: -1
         val cid = identity?.cid ?: -1
 
+        // Try to get UMTS signal quality metrics
+        val signalQuality = try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // On newer Android versions, try to get Ec/Io
+                val ecioField = signal?.javaClass?.getDeclaredField("mEcio")
+                ecioField?.isAccessible = true
+                val value = ecioField?.getInt(signal)
+                if (value != null && value != Integer.MAX_VALUE && value > -999) {
+                    value / 10.0  // Convert to dB if it's stored as tenths of dB
+                } else null
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("CellInfo3G", "Error getting WCDMA signal quality: ${e.message}")
+            null
+        }
+
         signalPowerText.text = "$dbm dBm"
-        sinrText.text = "Not available"
+        sinrText.text = signalQuality?.let { "%.1f dB".format(it) } ?: "Not available"
+
         val uarfcn = identity?.uarfcn ?: -1
         frequencyBandText.text = if (uarfcn >= 0) getWcdmaBandFromUarfcn(uarfcn) else "Not available"
-
         cellIdText.text = if (lac >= 0 && cid >= 0) String.format("%05d-%08d", lac, cid) else "Not available"
+
+        Log.d("CellInfoWCDMA", "UARFCN=$uarfcn, Quality=$signalQuality")
     }
     private fun getWcdmaBandFromUarfcn(uarfcn: Int): String {
         return when (uarfcn) {
@@ -310,11 +348,14 @@ class MainActivity : ComponentActivity() {
         val cid = identity?.cid ?: -1
 
         signalPowerText.text = "$dbm dBm"
-        sinrText.text = "Not available"
+        // As requested, show "Not supported" for GSM networks
+        sinrText.text = "Not supported"
+
         val arfcn = identity?.arfcn ?: -1
         frequencyBandText.text = if (arfcn >= 0) getGsmBandFromArfcn(arfcn) else "Not available"
-
         cellIdText.text = if (lac >= 0 && cid >= 0) String.format("%05d-%08d", lac, cid) else "Not available"
+
+        Log.d("CellInfoGSM", "ARFCN=$arfcn")
     }
     private fun getGsmBandFromArfcn(arfcn: Int): String {
         return when (arfcn) {
