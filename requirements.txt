@@ -1,0 +1,5 @@
+Flask>=2.0
+Flask-SQLAlchemy>=2.5
+psycopg2-binary>=2.9 # For PostgreSQL connection
+python-dotenv>=0.19 # For loading .env files
+SQLAlchemy>=1.4 # Often needed explicitly or as dependency
