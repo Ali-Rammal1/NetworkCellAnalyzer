@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.sql import text
 from sqlalchemy import desc, func, distinct, cast, Float
 from dotenv import load_dotenv
 import traceback
@@ -158,15 +159,19 @@ def calculate_stats_for_period(start_dt, end_dt):
              signal_net_query if row.avg_signal is not None]
 
             # *** UPDATED to query CellData.snr and store in avg_snr_by_network ***
-            snr_net_query = base_query.filter(CellData.snr.isnot(None)) \
-                .with_entities(
-                CellData.network_type,
-                func.avg(cast(func.regexp_replace(CellData.snr, r'[^-0-9.]', '', 'g'), Float)).label('avg_snr')
-                # Use snr column
-            ).group_by(CellData.network_type)
-            for row in snr_net_query.all():
-                if row.avg_snr is not None: avg_snr_by_network[row.network_type or 'Unknown'] = float(
-                    row.avg_snr)  # Use avg_snr_by_network key
+            snr_net_query = db.session.execute(text("""
+    SELECT network_type,
+           AVG(CAST(regexp_replace(snr, '[^0-9\\-.]', '', 'g') AS FLOAT)) AS avg_snr
+    FROM cell_data
+    WHERE snr IS NOT NULL
+      AND snr ~ '[-]?[0-9]+\\.?[0-9]*'
+      AND upload_time >= :start AND upload_time < :end
+    GROUP BY network_type
+"""), {'start': start_dt, 'end': end_dt}).fetchall()
+
+            for row in snr_net_query:
+                if row.avg_snr is not None:
+                    avg_snr_by_network[row.network_type or 'Unknown'] = float(row.avg_snr)
 
             signal_dev_query = base_query.filter(CellData.signal_power.isnot(None)).with_entities(CellData.user_id,
                                                                                                   func.avg(cast(

@@ -1,6 +1,7 @@
 package com.example.networkcellanalyzer
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -169,26 +170,37 @@ class MainActivity : ComponentActivity() {
             displayUnavailable()
         }
 
+        val iso8601DateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US)
+        iso8601DateFormat.timeZone = TimeZone.getTimeZone("UTC")
+        val clientTimestampISO = iso8601DateFormat.format(Date())
+
         val dataToSend = mapOf(
+            "userId" to getUserId(),
+            "clientTimestamp" to clientTimestampISO,
             "operator" to operatorText.text.toString(),
             "signalPower" to signalPowerText.text.toString(),
-            "sinr" to sinrText.text.toString(),
+            "snr" to sinrText.text.toString(), // ✅ Replaces sinr with snr
             "networkType" to networkTypeText.text.toString(),
             "frequencyBand" to frequencyBandText.text.toString(),
             "cellId" to cellIdText.text.toString(),
-            "timestamp" to timestampText.text.toString(),
             "ipAddress" to getLocalIpAddress(),
             "macAddress" to getMacAddress()
         )
 
+
         sendDataToServer(dataToSend)
+    }
+    @SuppressLint("HardwareIds")
+    private fun getUserId(): String {
+        return Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+            ?: UUID.randomUUID().toString()
     }
 
     private fun sendDataToServer(data: Map<String, String>) {
         Thread {
             try {
                 val json = JSONObject(data)
-                val url = URL("http://192.168.1.44:5000/upload") // Change to your server IP if using a real device
+                val url = URL("http://10.169.10.233:5000/upload") // Change to your server IP if using a real device
                 //val url = URL("https://key-pigeon-creative.ngrok-free.app/upload")
 
                 val conn = url.openConnection() as HttpURLConnection
