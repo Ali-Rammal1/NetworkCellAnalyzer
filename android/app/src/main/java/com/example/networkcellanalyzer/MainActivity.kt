@@ -21,6 +21,10 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
+import android.content.SharedPreferences
+import androidx.core.content.ContextCompat
+import android.view.Menu
+import android.view.MenuItem
 
 class MainActivity : ComponentActivity() {
 
@@ -35,6 +39,12 @@ class MainActivity : ComponentActivity() {
     private lateinit var timestampText: TextView
 
     private lateinit var telephonyManager: TelephonyManager
+    private val PREFS_NAME = "NetworkCellPrefs"
+    private lateinit var username: String
+    private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var welcomeText: TextView //not implemented yet
+    private lateinit var guestBackButton: MaterialButton
+
 
     private val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         arrayOf(
@@ -76,8 +86,35 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        fetchButton = findViewById(R.id.fetchButton)
+        // Initialize shared preferences once
+        sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+        // Check login status
+        if (!sharedPreferences.getBoolean("isLoggedIn", false) &&
+            !sharedPreferences.getBoolean("isGuest", false)) {
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish()
+            return
+        }
+
+        // Get username
+        username = intent.getStringExtra("username")
+            ?: sharedPreferences.getString("username", "User") ?: "User"
+
+        // Setup logout/back button
+        val guestBackButton = findViewById<MaterialButton>(R.id.logoutButton)
+        if (sharedPreferences.getBoolean("isGuest", false)) {
+            guestBackButton.text = "Back to Login"
+        } else {
+            guestBackButton.text = "Log Out"
+        }
+        guestBackButton.setOnClickListener {
+            logout()
+        }
+
+        // Initialize UI components
+        fetchButton = findViewById(R.id.fetchButton)
         operatorText = findViewById(R.id.operatorText)
         signalPowerText = findViewById(R.id.signalPowerText)
         sinrText = findViewById(R.id.sinrText)
@@ -91,6 +128,33 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_logout -> {
+                logout()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+    private fun logout() {
+        sharedPreferences.edit().apply {
+            putBoolean("isLoggedIn", false)
+            putBoolean("isGuest", false)
+            apply()
+        }
+
+        val intent = Intent(this, LoginActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(intent)
+        finish()
+    }
     override fun onResume() {
         super.onResume()
         telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
