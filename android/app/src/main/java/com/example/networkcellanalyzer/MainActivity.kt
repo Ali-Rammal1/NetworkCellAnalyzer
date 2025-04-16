@@ -297,18 +297,28 @@ class MainActivity : ComponentActivity() {
         val signal = cellInfo.cellSignalStrength as? CellSignalStrengthNr
 
         val dbm = signal?.dbm ?: -999
-        val sinr = signal?.csiSinr?.takeIf { it != Integer.MAX_VALUE } ?: -999
+
+        val ssSinr = signal?.ssSinr?.takeIf { it != CellInfo.UNAVAILABLE } ?: -999
+        val csiSinr = signal?.csiSinr?.takeIf { it != CellInfo.UNAVAILABLE } ?: -999
+
+        val sinrToDisplay = when {
+            ssSinr != -999 -> ssSinr
+            csiSinr != -999 -> csiSinr
+            else -> -999
+        }
+
         val nrarfcn = identity?.nrarfcn?.takeIf { it > 0 } ?: -1
         val tac = identity?.tac ?: -1
         val nci = identity?.nci ?: -1
 
         signalPowerText.text = if (dbm > -999) "$dbm dBm" else "Not available"
-        sinrText.text = if (sinr != -999) "$sinr dB" else "Not available"
+        sinrText.text = if (sinrToDisplay != -999) "$sinrToDisplay dB" else "Not available"
         frequencyBandText.text = if (nrarfcn > 0) getNrBandFromNrarfcn(nrarfcn) else "Not available"
         cellIdText.text = if (tac >= 0 && nci >= 0) String.format("%05d-%08d", tac, nci) else "Not available"
 
-        Log.d("CellInfo5G", "NRARFCN=$nrarfcn, SINR=$sinr")
+        Log.d("CellInfo5G", "SS-SINR=$ssSinr, CSI-SINR=$csiSinr")
     }
+
 
     private fun processWcdmaCellInfo(cellInfo: CellInfoWcdma) {
         val identity = cellInfo.cellIdentity as? CellIdentityWcdma
@@ -345,14 +355,17 @@ class MainActivity : ComponentActivity() {
 
         Log.d("CellInfoWCDMA", "UARFCN=$uarfcn, Quality=$signalQuality")
     }
-    //test
+
     private fun getWcdmaBandFromUarfcn(uarfcn: Int): String {
         return when (uarfcn) {
-            in 10562..10838 -> "1 (2100MHz)"
-            in 9662..9938   -> "8 (900MHz)"
+            in 10562..10838 -> "Band 1 (2100 MHz)"
+            in 9662..9938 -> "Band 8 (900 MHz)"
+            in 2937..3088 -> "Band 5 (850 MHz)"
+            in 4387..4413 -> "Band 2 (1900 MHz)"
             else -> "Unknown UARFCN ($uarfcn)"
         }
     }
+
 
     private fun processGsmCellInfo(cellInfo: CellInfoGsm) {
         val identity = cellInfo.cellIdentity as? CellIdentityGsm
