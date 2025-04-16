@@ -184,7 +184,9 @@ class MainActivity : ComponentActivity() {
             "frequencyBand" to frequencyBandText.text.toString(),
             "cellId" to cellIdText.text.toString(),
             "ipAddress" to getLocalIpAddress(),
-            "macAddress" to getMacAddress()
+            "macAddress" to getMacAddress(),
+            "deviceBrand" to Build.BRAND
+
         )
 
 
