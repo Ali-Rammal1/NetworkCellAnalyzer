@@ -1,11 +1,22 @@
 package com.example.networkcellanalyzer
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.BufferedOutputStream
+import java.io.BufferedWriter
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 
 class RegisterActivity : AppCompatActivity() {
 
@@ -17,7 +28,7 @@ class RegisterActivity : AppCompatActivity() {
     private lateinit var backToLoginButton: MaterialButton
 
     companion object {
-        private const val PREFS_NAME = "NetworkCellPrefs"
+        private const val API_URL = "${BuildConfig.API_BASE_URL}/register"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,13 +43,13 @@ class RegisterActivity : AppCompatActivity() {
         registerButton = findViewById(R.id.registerButton)
         backToLoginButton = findViewById(R.id.backToLoginButton)
 
-        // Set up click listeners
+        // Click listeners
         registerButton.setOnClickListener {
             registerUser()
         }
 
         backToLoginButton.setOnClickListener {
-            finish() // Go back to the login activity
+            finish()
         }
     }
 
@@ -48,7 +59,6 @@ class RegisterActivity : AppCompatActivity() {
         val password = passwordEditText.text.toString().trim()
         val confirmPassword = confirmPasswordEditText.text.toString().trim()
 
-        // Basic validation
         if (name.isEmpty()) {
             nameEditText.error = "Name is required"
             return
@@ -59,8 +69,18 @@ class RegisterActivity : AppCompatActivity() {
             return
         }
 
+        if (!isValidEmail(email)) {
+            emailEditText.error = "Enter a valid email address"
+            return
+        }
+
         if (password.isEmpty()) {
             passwordEditText.error = "Password is required"
+            return
+        }
+
+        if (password.length < 6) {
+            passwordEditText.error = "Password must be at least 6 characters"
             return
         }
 
@@ -74,17 +94,71 @@ class RegisterActivity : AppCompatActivity() {
             return
         }
 
-        // In a real app, you would save credentials to a database or an API
-        // For this example, we'll use SharedPreferences for simplicity
-        val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        sendRegistrationToApi(name, email, password)
+    }
+
+    private fun isValidEmail(email: String): Boolean {
+        return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+    private fun sendRegistrationToApi(name: String, email: String, password: String) {
+        registerButton.isEnabled = false
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val url = URL(API_URL)
+                val httpURLConnection = url.openConnection() as HttpURLConnection
+                httpURLConnection.requestMethod = "POST"
+                httpURLConnection.setRequestProperty("Content-Type", "application/json")
+                httpURLConnection.doOutput = true
+                httpURLConnection.connectTimeout = 10000
+                httpURLConnection.readTimeout = 10000
+
+                val jsonObject = JSONObject().apply {
+                    put("name", name)
+                    put("email", email)
+                    put("password", password)
+                }
+
+                val outputStream = BufferedOutputStream(httpURLConnection.outputStream)
+                val writer = BufferedWriter(OutputStreamWriter(outputStream, "UTF-8"))
+                writer.write(jsonObject.toString())
+                writer.flush()
+                writer.close()
+                outputStream.close()
+
+                val responseCode = httpURLConnection.responseCode
+
+                withContext(Dispatchers.Main) {
+                    if (responseCode in 200..299) {
+                        // Navigate to LoginActivity with a success flag
+                        val intent = Intent(this@RegisterActivity, LoginActivity::class.java)
+                        intent.putExtra("REGISTER_SUCCESS", true)
+                        startActivity(intent)
+                        finish()
+                    } else {
+                        val errorMessage = httpURLConnection.errorStream?.bufferedReader()?.use { it.readText() }
+                            ?: "Registration failed"
+                        Toast.makeText(this@RegisterActivity, "Error: $errorMessage", Toast.LENGTH_LONG).show()
+                    }
+                    registerButton.isEnabled = true
+                }
+
+                httpURLConnection.disconnect()
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@RegisterActivity, "Network error: ${e.message}", Toast.LENGTH_LONG).show()
+                    registerButton.isEnabled = true
+                }
+            }
+        }
+    }
+
+    private fun saveUserToken(token: String) {
+        val sharedPreferences = getSharedPreferences("NetworkCellPrefs", Context.MODE_PRIVATE)
         sharedPreferences.edit().apply {
-            putString("username", name)
-            putString("email", email)
-            putString("password", password) // Note: Storing plain text passwords is insecure!
+            putString("auth_token", token)
             apply()
         }
-
-        Toast.makeText(this, "Registration successful", Toast.LENGTH_SHORT).show()
-        finish() // Go back to the login activity
     }
 }

@@ -1,12 +1,19 @@
 package com.example.networkcellanalyzer
-import android.widget.TextView
+
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.*
+import org.json.JSONObject
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 
 class LoginActivity : AppCompatActivity() {
 
@@ -15,15 +22,20 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var loginButton: MaterialButton
     private lateinit var registerButton: MaterialButton
     private lateinit var guestButton: MaterialButton
+    private val coroutineScope = CoroutineScope(Dispatchers.Main + Job())
 
     companion object {
         private const val PREFS_NAME = "NetworkCellPrefs"
+        private const val SERVER_URL = "${BuildConfig.API_BASE_URL}" // Replace with your actual API endpoint
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
-
+        val registered = intent.getBooleanExtra("REGISTER_SUCCESS", false)
+        if (registered) {
+            Toast.makeText(this, "✅ Registered successfully! You can now log in.", Toast.LENGTH_LONG).show()
+        }
         // Initialize UI elements
         emailEditText = findViewById(R.id.emailEditText)
         passwordEditText = findViewById(R.id.passwordEditText)
@@ -81,24 +93,85 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
-        // In a real app, you would check credentials against a database or an API
-        // For this example, we'll use SharedPreferences for simplicity
-        val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val savedEmail = sharedPreferences.getString("email", "")
-        val savedPassword = sharedPreferences.getString("password", "")
-        val savedUsername = sharedPreferences.getString("username", "")
+        // Show loading indicator (you might want to add a progress bar to your layout)
+        loginButton.isEnabled = false
+        loginButton.text = "Logging in..."
 
-        if (email == savedEmail && password == savedPassword) {
-            // Successful login
-            sharedPreferences.edit().apply {
-                putBoolean("isLoggedIn", true)
-                putBoolean("isGuest", false)
-                apply()
+        // Make API request using coroutines
+        coroutineScope.launch {
+            try {
+                val result = loginWithServer(email, password)
+                if (result.first) {
+                    // Successful login
+                    val sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    sharedPreferences.edit().apply {
+                        putBoolean("isLoggedIn", true)
+                        putBoolean("isGuest", false)
+                        putString("username", result.second)
+                        putString("email", email)
+                        putString("userId", result.third)
+                        apply()
+                    }
+
+                    startMainActivity(result.second)
+                } else {
+                    // Failed login
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@LoginActivity, "Invalid credentials", Toast.LENGTH_SHORT).show()
+                        loginButton.isEnabled = true
+                        loginButton.text = "LOGIN"
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@LoginActivity, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    loginButton.isEnabled = true
+                    loginButton.text = "LOGIN"
+                    Log.e("LoginActivity", "Login error", e)
+                }
+            }
+        }
+    }
+
+    private suspend fun loginWithServer(email: String, password: String): Triple<Boolean, String, String> = withContext(Dispatchers.IO) {
+        val url = URL("$SERVER_URL/login")
+        val connection = url.openConnection() as HttpURLConnection
+
+        try {
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("Accept", "application/json")
+            connection.doOutput = true
+            connection.doInput = true
+
+            // Create JSON request body
+            val jsonBody = JSONObject().apply {
+                put("email", email)
+                put("password", password)
             }
 
-            startMainActivity(savedUsername ?: "")
-        } else {
-            Toast.makeText(this, "Invalid credentials", Toast.LENGTH_SHORT).show()
+            // Send request
+            OutputStreamWriter(connection.outputStream).use { writer ->
+                writer.write(jsonBody.toString())
+                writer.flush()
+            }
+
+            // Read response
+            val responseCode = connection.responseCode
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val jsonResponse = JSONObject(response)
+
+                if (jsonResponse.getBoolean("success")) {
+                    val name = jsonResponse.getString("name")
+                    val userId = jsonResponse.getString("id")
+                    return@withContext Triple(true, name, userId)
+                }
+            }
+
+            return@withContext Triple(false, "", "")
+        } finally {
+            connection.disconnect()
         }
     }
 
@@ -109,5 +182,10 @@ class LoginActivity : AppCompatActivity() {
         }
         startActivity(intent)
         finish()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        coroutineScope.cancel()
     }
 }

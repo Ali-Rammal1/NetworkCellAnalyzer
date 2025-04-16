@@ -1,5 +1,4 @@
 package com.example.networkcellanalyzer
-
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
@@ -266,7 +265,8 @@ class MainActivity : ComponentActivity() {
         Thread {
             try {
                 val json = JSONObject(data)
-                val url = URL("http://10.169.10.233:5000/upload") // Change to your server IP if using a real device
+                val url = URL("${BuildConfig.API_BASE_URL}/upload")
+
                 //val url = URL("https://key-pigeon-creative.ngrok-free.app/upload")
 
                 val conn = url.openConnection() as HttpURLConnection

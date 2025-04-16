@@ -9,11 +9,13 @@ android {
     compileSdk = 35
 
     defaultConfig {
+
         applicationId = "com.example.networkcellanalyzer"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "API_BASE_URL", "\"${property("API_BASE_URL")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,6 +38,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
