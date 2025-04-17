@@ -24,6 +24,7 @@ import android.content.SharedPreferences
 import androidx.core.content.ContextCompat
 import android.view.Menu
 import android.view.MenuItem
+import com.example.networkcellanalyzer.databinding.ActivityMainBinding
 
 class MainActivity : ComponentActivity() {
 
@@ -80,10 +81,19 @@ class MainActivity : ComponentActivity() {
             fetchHandler.postDelayed(this, 10000)
         }
     }
-
+    private lateinit var binding: ActivityMainBinding
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)  // Use binding.root instead of R.layout.activity_main
+
+        // Now you can use binding
+        binding.btnStatistics.setOnClickListener {
+            startActivity(Intent(this, StatisticsActivity::class.java))
+        }
 
         // Initialize shared preferences once
         sharedPreferences = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -257,9 +267,16 @@ class MainActivity : ComponentActivity() {
     }
     @SuppressLint("HardwareIds")
     private fun getUserId(): String {
-        return Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-            ?: UUID.randomUUID().toString()
+        val prefs = getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        val stored = prefs.getString("userId", null)
+        if (!stored.isNullOrBlank()) return stored
+
+        // First time? Get ANDROID_ID and store it
+        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+        prefs.edit().putString("userId", androidId).apply()
+        return androidId
     }
+
 
     private fun sendDataToServer(data: Map<String, String>) {
         Thread {

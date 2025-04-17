@@ -39,6 +39,8 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        dataBinding= true
+        viewBinding =true
     }
 }
 
@@ -57,6 +59,9 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.cardview:cardview:1.0.0")
     implementation("com.google.android.material:material:1.9.0")
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+
+
 
     // The rest of your existing dependencies
     testImplementation(libs.junit)
@@ -66,4 +71,6 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+
 }

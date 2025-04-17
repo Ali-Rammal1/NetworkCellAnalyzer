@@ -45,7 +45,10 @@
             android:name=".MainActivity"
             android:exported="false"
             android:theme="@style/Theme.NetworkCellAnalyzer" />
-
+        <activity
+            android:name=".StatisticsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.NetworkCellAnalyzer" />
     </application>
 
 </manifest>

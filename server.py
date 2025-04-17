@@ -381,7 +381,198 @@ def get_app_stats():
         else:
             err_msg_for_client = "An internal error occurred while generating statistics."
         return jsonify({'status': 'error', 'message': err_msg_for_client}), 500
+    
+@app.route('/api/user-stats', methods=['GET'])
+def get_user_stats():
+    """Provides optimized statistics for a specific user based on a date range."""
+    user_id = request.args.get('userId')
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    limit = request.args.get('limit', 1000, type=int)  # Default to 1000 points max
 
+    if not user_id:
+        return jsonify({'status': 'error', 'message': "Missing 'userId' query parameter."}), 400
+
+    # --- Adjust timestamps back by 3 hours since app sends local time (UTC+3) ---
+    offset = timedelta(hours=3)
+
+    if not start_date_str or not end_date_str:
+        end_dt = datetime.now(timezone.utc)
+        start_dt = end_dt - timedelta(hours=1)
+    else:
+        try:
+            start_dt = datetime.strptime(start_date_str, '%Y-%m-%d %H:%M:%S') - offset
+            end_dt = datetime.strptime(end_date_str, '%Y-%m-%d %H:%M:%S') - offset
+            start_dt = start_dt.replace(tzinfo=timezone.utc)
+            end_dt = end_dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return jsonify({'status': 'error', 'message': "Invalid date format. Use YYYY-MM-DD HH:MM:SS."}), 400
+
+    try:
+        is_postgresql = db.engine.dialect.name == 'postgresql'
+
+        base_query = CellData.query.filter(
+            CellData.user_id == user_id,
+            CellData.upload_time >= start_dt,
+            CellData.upload_time <= end_dt
+        )
+
+        total_data_points = base_query.count()
+
+        if total_data_points == 0:
+            return jsonify({
+                'status': 'success',
+                'message': 'No data found for this user in the specified time range',
+                'data': {
+                    'signalData': [],
+                    'networkData': [],
+                    'summary': {}
+                }
+            }), 200
+
+        downsample_factor = max(1, (total_data_points // limit)) if limit > 0 else 1
+
+        network_stats = {}
+        network_counts_query = base_query.with_entities(
+            CellData.network_type,
+            func.count(CellData.id).label('count')
+        ).group_by(CellData.network_type).all()
+
+        for row in network_counts_query:
+            network_type = row.network_type or "UNKNOWN"
+            network_stats[network_type] = row.count
+
+        network_distribution = {
+            k: round(v / total_data_points * 100, 1)
+            for k, v in network_stats.items()
+        }
+
+        if downsample_factor > 1:
+            if is_postgresql:
+                sampled_query = db.session.execute(text(f"""
+                    WITH numbered_rows AS (
+                        SELECT 
+                            upload_time, 
+                            signal_power,
+                            snr, 
+                            network_type,
+                            ROW_NUMBER() OVER (ORDER BY upload_time) as row_num
+                        FROM cell_data
+                        WHERE user_id = :user_id 
+                          AND upload_time BETWEEN :start_dt AND :end_dt
+                    )
+                    SELECT 
+                        upload_time, 
+                        signal_power,
+                        snr,
+                        network_type
+                    FROM numbered_rows
+                    WHERE row_num % :downsample = 0
+                    ORDER BY upload_time
+                """), {
+                    'user_id': user_id,
+                    'start_dt': start_dt,
+                    'end_dt': end_dt,
+                    'downsample': downsample_factor
+                }).fetchall()
+            else:
+                all_data = base_query.order_by(CellData.upload_time).all()
+                sampled_query = all_data[::downsample_factor]
+        else:
+            sampled_query = base_query.order_by(CellData.upload_time).all()
+
+        signal_data = []
+        network_data = []
+        snr_values = []
+
+        network_type_map = {
+            "LTE": 4, "5G": 5, "3G": 3, "2G": 2, "WIFI": 6, "UNKNOWN": 0
+        }
+
+        for row in sampled_query:
+            timestamp = int(row.upload_time.timestamp() * 1000) if hasattr(row, 'upload_time') else int(row[0].timestamp() * 1000)
+            signal_power = row.signal_power if hasattr(row, 'signal_power') else row[1]
+            snr = row.snr if hasattr(row, 'snr') else row[2]
+            network_type = row.network_type if hasattr(row, 'network_type') else row[3]
+
+            if signal_power:
+                try:
+                    import re
+                    match = re.search(r'-?\d+\.?\d*', signal_power)
+                    if match:
+                        signal_value = float(match.group(0))
+                        signal_data.append({
+                            'timestamp': timestamp,
+                            'signalStrength': signal_value
+                        })
+                except (ValueError, TypeError):
+                    pass
+
+            net_type = network_type or "UNKNOWN"
+            net_val = network_type_map.get(net_type, 0)
+            network_data.append({
+                'timestamp': timestamp,
+                'networkType': net_type,
+                'networkTypeValue': net_val
+            })
+
+            if snr:
+                try:
+                    import re
+                    match = re.search(r'-?\d+\.?\d*', snr)
+                    if match:
+                        snr_values.append(float(match.group(0)))
+                except (ValueError, TypeError):
+                    pass
+
+        summary = {
+            'dataPoints': total_data_points,
+            'networkDistribution': network_distribution,
+            'sampledPoints': len(signal_data),
+            'downsampleFactor': downsample_factor
+        }
+
+        if is_postgresql:
+            avg_signal_query = db.session.execute(text("""
+                SELECT AVG(CAST(regexp_replace(signal_power, '[^-0-9.]', '', 'g') AS FLOAT)) as avg_signal
+                FROM cell_data
+                WHERE user_id = :user_id 
+                  AND upload_time BETWEEN :start_dt AND :end_dt
+                  AND signal_power ~ '[-]?[0-9]+\.?[0-9]*'
+            """), {'user_id': user_id, 'start_dt': start_dt, 'end_dt': end_dt}).fetchone()
+
+            avg_snr_query = db.session.execute(text("""
+                SELECT AVG(CAST(regexp_replace(snr, '[^-0-9.]', '', 'g') AS FLOAT)) as avg_snr
+                FROM cell_data
+                WHERE user_id = :user_id 
+                  AND upload_time BETWEEN :start_dt AND :end_dt
+                  AND snr ~ '[-]?[0-9]+\.?[0-9]*'
+            """), {'user_id': user_id, 'start_dt': start_dt, 'end_dt': end_dt}).fetchone()
+
+            summary['avgSignalStrength'] = float(avg_signal_query.avg_signal) if avg_signal_query.avg_signal else None
+            summary['avgSnr'] = float(avg_snr_query.avg_snr) if avg_snr_query.avg_snr else None
+        else:
+            summary['avgSignalStrength'] = sum([s['signalStrength'] for s in signal_data]) / len(signal_data) if signal_data else None
+            summary['avgSnr'] = sum(snr_values) / len(snr_values) if snr_values else None
+
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'signalData': signal_data,
+                'networkData': network_data,
+                'summary': summary,
+                'timeRange': {
+                    'start': start_dt.isoformat(),
+                    'end': end_dt.isoformat()
+                }
+            }
+        }), 200
+
+    except Exception as e:
+        print(f"\u274c Error generating user stats: {e}")
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': f"An error occurred while fetching statistics: {str(e)}"}), 500
+ 
 # --- Initialization / Helper ---
 def create_tables():
     """Creates database tables if they don't exist. Use with caution."""
