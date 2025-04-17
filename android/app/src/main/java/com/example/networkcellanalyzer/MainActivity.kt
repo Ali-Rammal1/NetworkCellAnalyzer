@@ -107,6 +107,11 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        // Disable stats button if guest
+        if (sharedPreferences.getBoolean("isGuest", false)) {
+            binding.btnStatistics.isEnabled = false
+            binding.btnStatistics.alpha = 0.5f  // Optional: make it look disabled
+        }
         // Get username
         username = intent.getStringExtra("username")
             ?: sharedPreferences.getString("username", "User") ?: "User"
