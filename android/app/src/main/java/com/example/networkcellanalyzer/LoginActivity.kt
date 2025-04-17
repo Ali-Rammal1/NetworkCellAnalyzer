@@ -72,10 +72,7 @@ class LoginActivity : AppCompatActivity() {
             startMainActivity("Guest")
         }
 
-        findViewById<TextView>(R.id.forgotPasswordText).setOnClickListener {
-            Toast.makeText(this, "Forgot password functionality coming soon", Toast.LENGTH_SHORT).show()
-            // Implement password reset functionality
-        }
+
     }
 
     private fun loginUser() {

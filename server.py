@@ -442,10 +442,36 @@ def get_user_stats():
             network_type = row.network_type or "UNKNOWN"
             network_stats[network_type] = row.count
 
-        network_distribution = {
-            k: round(v / total_data_points * 100, 1)
-            for k, v in network_stats.items()
-        }
+        # Ensure percentages are positive and sum to exactly 100%
+        total_count = sum(network_stats.values())
+        network_distribution = {}
+        if total_count > 0:
+            # Calculate initial percentages
+            raw_distribution = {
+                k: max(0, v / total_count * 100) 
+                for k, v in network_stats.items()
+            }
+            
+            # Normalize to ensure sum is exactly 100%
+            total_percentage = sum(raw_distribution.values())
+            if total_percentage > 0:
+                network_distribution = {
+                    k: round((v / total_percentage) * 100, 1)
+                    for k, v in raw_distribution.items()
+                }
+            
+            # Filter out very small values (less than 0.5%) to prevent pie chart rendering issues
+            network_distribution = {
+                k: v for k, v in network_distribution.items() if v >= 0.5
+            }
+            
+            # Re-normalize after filtering if needed
+            if network_distribution and sum(network_distribution.values()) != 100:
+                total = sum(network_distribution.values())
+                network_distribution = {
+                    k: round((v / total) * 100, 1) 
+                    for k, v in network_distribution.items()
+                }
 
         if downsample_factor > 1:
             if is_postgresql:
@@ -572,7 +598,7 @@ def get_user_stats():
         print(f"\u274c Error generating user stats: {e}")
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f"An error occurred while fetching statistics: {str(e)}"}), 500
- 
+    
 # --- Initialization / Helper ---
 def create_tables():
     """Creates database tables if they don't exist. Use with caution."""

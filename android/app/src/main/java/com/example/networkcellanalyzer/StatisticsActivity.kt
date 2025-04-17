@@ -16,6 +16,7 @@ import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.utils.ColorTemplate
+import com.github.mikephil.charting.components.Legend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -134,14 +135,16 @@ class StatisticsActivity : AppCompatActivity() {
         }
 
         binding.networkPieChart.apply {
+            setUsePercentValues(true)
             description.isEnabled = false
             isDrawHoleEnabled = true
-            setUsePercentValues(true)
-            setEntryLabelTextSize(12f)
-            setEntryLabelColor(Color.BLACK)
-            centerText = "Network Types"
-            setCenterTextSize(18f)
+            holeRadius = 40f
+            transparentCircleRadius = 45f
+            setDrawEntryLabels(false)
             legend.isEnabled = true
+            legend.verticalAlignment = Legend.LegendVerticalAlignment.CENTER
+            legend.horizontalAlignment = Legend.LegendHorizontalAlignment.RIGHT
+            legend.orientation = Legend.LegendOrientation.VERTICAL
         }
 
         binding.tvDataSpeedTitle.visibility = View.GONE
