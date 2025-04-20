@@ -35,16 +35,17 @@ class StatisticsActivity : AppCompatActivity() {
     private var startDate: Date = Date()
     private var endDate: Date = Date()
     private lateinit var userId: String
+    private lateinit var userEmail: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityStatisticsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        userId = intent.getStringExtra("USER_ID") ?: getUserIdFromPrefs()
+        userEmail = intent.getStringExtra("user_email") ?: getUserEmailFromPrefs()
 
-        if (userId.isBlank()) {
-            Toast.makeText(this, "User ID not found. Please log in again.", Toast.LENGTH_LONG).show()
+        if (userEmail.isBlank()) {
+            Toast.makeText(this, "User email not found. Please log in again.", Toast.LENGTH_LONG).show()
             finish()
             return
         }
@@ -56,10 +57,12 @@ class StatisticsActivity : AppCompatActivity() {
         setTimeRange(TimeUnit.HOURS.toMillis(1))
     }
 
-    private fun getUserIdFromPrefs(): String {
-        val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
-        return prefs.getString("userId", "") ?: ""
+
+    private fun getUserEmailFromPrefs(): String {
+        val prefs = getSharedPreferences("NetworkCellPrefs", MODE_PRIVATE)
+        return prefs.getString("user_email", "") ?: ""
     }
+
 
     private fun setupToolbar() {
         setSupportActionBar(binding.toolbar)
@@ -176,7 +179,7 @@ class StatisticsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val statsData = withContext(Dispatchers.IO) {
-                    fetchUserStatsFromServer(userId, formattedStart, formattedEnd)
+                    fetchUserStatsFromServer(userEmail, formattedStart, formattedEnd)
                 }
 
                 if (statsData.signalData.isEmpty() && statsData.networkData.isEmpty()) {
@@ -192,12 +195,13 @@ class StatisticsActivity : AppCompatActivity() {
         }
     }
 
-    private fun fetchUserStatsFromServer(userId: String, startDate: String, endDate: String): UserStatsData {
-        val encodedUserId = java.net.URLEncoder.encode(userId, "UTF-8")
+
+    private fun fetchUserStatsFromServer(userEmail: String, startDate: String, endDate: String): UserStatsData {
+        val encodedEmail = java.net.URLEncoder.encode(userEmail, "UTF-8")
         val encodedStartDate = java.net.URLEncoder.encode(startDate, "UTF-8")
         val encodedEndDate = java.net.URLEncoder.encode(endDate, "UTF-8")
 
-        val url = URL("${BuildConfig.API_BASE_URL}/api/user-stats?userId=$encodedUserId&start_date=$encodedStartDate&end_date=$encodedEndDate")
+        val url = URL("${BuildConfig.API_BASE_URL}/api/user-stats?email=$encodedEmail&start_date=$encodedStartDate&end_date=$encodedEndDate")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
 
@@ -213,6 +217,7 @@ class StatisticsActivity : AppCompatActivity() {
             connection.disconnect()
         }
     }
+
 
     private fun parseUserStatsResponse(jsonResponse: String): UserStatsData {
         val jsonObject = JSONObject(jsonResponse)

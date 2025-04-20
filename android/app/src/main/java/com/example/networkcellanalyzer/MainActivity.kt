@@ -112,9 +112,10 @@ class MainActivity : ComponentActivity() {
             binding.btnStatistics.isEnabled = false
             binding.btnStatistics.alpha = 0.5f  // Optional: make it look disabled
         }
-        // Get username
+        // Get username and email
         username = intent.getStringExtra("username")
             ?: sharedPreferences.getString("username", "User") ?: "User"
+
 
         // Setup logout/back button
         val guestBackButton = findViewById<MaterialButton>(R.id.logoutButton)
@@ -251,9 +252,10 @@ class MainActivity : ComponentActivity() {
         val iso8601DateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US)
         iso8601DateFormat.timeZone = TimeZone.getTimeZone("UTC")
         val clientTimestampISO = iso8601DateFormat.format(Date())
-
+        val userEmail = sharedPreferences.getString("user_email", "") ?: ""
         val dataToSend = mapOf(
             "userId" to getUserId(),
+            "email" to userEmail,
             "clientTimestamp" to clientTimestampISO,
             "operator" to operatorText.text.toString(),
             "signalPower" to signalPowerText.text.toString(),

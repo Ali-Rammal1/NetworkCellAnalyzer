@@ -105,7 +105,7 @@ class LoginActivity : AppCompatActivity() {
                         putBoolean("isLoggedIn", true)
                         putBoolean("isGuest", false)
                         putString("username", result.second)
-                        putString("email", email)
+                        putString("user_email", email)
                         putString("userId", result.third)
                         apply()
                     }
