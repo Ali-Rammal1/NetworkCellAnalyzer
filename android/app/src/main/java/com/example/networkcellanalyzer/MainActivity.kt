@@ -404,7 +404,25 @@ class MainActivity : ComponentActivity() {
 
         Log.d("CellInfo5G", "SS-SINR=$ssSinr, CSI-SINR=$csiSinr")
     }
-
+    private fun getGsmBandFromArfcn(arfcn: Int): String {
+        return when (arfcn) {
+            in 1..124       -> "GSM 900 MHz"
+            in 512..885     -> "DCS 1800 MHz"
+            in 128..251     -> "GSM 850 MHz"
+            in 512..810     -> "PCS 1900 MHz"
+            else -> "Unknown ARFCN ($arfcn)"
+        }
+    }
+    private fun getQualityFromDbm(dbm: Int): String {
+        return when {
+            dbm >= -70 -> "Excellent"
+            dbm >= -85 -> "Good"
+            dbm >= -100 -> "Fair"
+            dbm >= -110 -> "Poor"
+            dbm != -999 -> "Very Poor"
+            else -> "Not available"
+        }
+    }
 
     private fun processWcdmaCellInfo(cellInfo: CellInfoWcdma) {
         val identity = cellInfo.cellIdentity as? CellIdentityWcdma
@@ -414,33 +432,40 @@ class MainActivity : ComponentActivity() {
         val lac = identity?.lac ?: -1
         val cid = identity?.cid ?: -1
 
-        // Try to get UMTS signal quality metrics
-        val signalQuality = try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // On newer Android versions, try to get Ec/Io
-                val ecioField = signal?.javaClass?.getDeclaredField("mEcio")
-                ecioField?.isAccessible = true
-                val value = ecioField?.getInt(signal)
-                if (value != null && value != Integer.MAX_VALUE && value > -999) {
-                    value / 10.0  // Convert to dB if it's stored as tenths of dB
-                } else null
-            } else {
-                null
+        val ecio = try {
+            val fieldNames = arrayOf("mEcNo", "mEcio", "mEcIo")
+            var value: Int? = null
+            for (name in fieldNames) {
+                try {
+                    val field = signal?.javaClass?.getDeclaredField(name)
+                    field?.isAccessible = true
+                    val temp = field?.getInt(signal)
+                    if (temp != null && temp != Integer.MAX_VALUE && temp > -999) {
+                        value = temp
+                        break
+                    }
+                } catch (_: Exception) {}
             }
+            value?.div(10.0)
         } catch (e: Exception) {
-            Log.e("CellInfo3G", "Error getting WCDMA signal quality: ${e.message}")
             null
         }
 
         signalPowerText.text = "$dbm dBm"
-        sinrText.text = signalQuality?.let { "%.1f dB".format(it) } ?: "Not available"
+
+        // Display quality based on signal strength when Ec/Io isn't available
+        sinrText.text = if (ecio != null) {
+            "%.1f dB".format(ecio)
+        } else {
+            getQualityFromDbm(dbm)
+        }
 
         val uarfcn = identity?.uarfcn ?: -1
         frequencyBandText.text = if (uarfcn >= 0) getWcdmaBandFromUarfcn(uarfcn) else "Not available"
         cellIdText.text = if (lac >= 0 && cid >= 0) String.format("%05d-%08d", lac, cid) else "Not available"
-
-        Log.d("CellInfoWCDMA", "UARFCN=$uarfcn, Quality=$signalQuality")
     }
+
+
 
     private fun getWcdmaBandFromUarfcn(uarfcn: Int): String {
         return when (uarfcn) {
@@ -461,26 +486,48 @@ class MainActivity : ComponentActivity() {
         val lac = identity?.lac ?: -1
         val cid = identity?.cid ?: -1
 
+        // Get BER (Bit Error Rate) if available
+        val ber = try {
+            val field = signal?.javaClass?.getDeclaredField("mBitErrorRate")
+            field?.isAccessible = true
+            val value = field?.getInt(signal)
+            if (value != null && value in 0..7) value else null  // Only use valid BER values (0-7)
+        } catch (e: Exception) {
+            Log.d("CellInfo", "Error accessing BER: ${e.message}")
+            null
+        }
+
+        Log.d("CellInfo", "GSM BER value: $ber, dbm: $dbm")  // Add logging to track what's happening
+
         signalPowerText.text = "$dbm dBm"
-        // As requested, show "Not supported" for GSM networks
-        sinrText.text = "Not supported"
+
+        // Convert BER to a descriptive quality rating with percentage
+        sinrText.text = when (ber) {
+            0 -> "Excellent (BER < 0.2%)"
+            1 -> "Very Good (BER 0.2–0.4%)"
+            2 -> "Good (BER 0.4–0.8%)"
+            3 -> "OK (BER 0.8–1.6%)"
+            4 -> "Fair (BER 1.6–3.2%)"
+            5 -> "Poor (BER 3.2–6.4%)"
+            6 -> "Very Poor (BER 6.4–12.8%)"
+            7 -> "Extremely Poor (BER >12.8%)"
+            else -> "${getQualityDescription(dbm)}"
+        }
 
         val arfcn = identity?.arfcn ?: -1
         frequencyBandText.text = if (arfcn >= 0) getGsmBandFromArfcn(arfcn) else "Not available"
         cellIdText.text = if (lac >= 0 && cid >= 0) String.format("%05d-%08d", lac, cid) else "Not available"
-
-        Log.d("CellInfoGSM", "ARFCN=$arfcn")
     }
-    private fun getGsmBandFromArfcn(arfcn: Int): String {
-        return when (arfcn) {
-            in 1..124       -> "GSM 900 MHz"
-            in 512..885     -> "DCS 1800 MHz"
-            in 128..251     -> "GSM 850 MHz"
-            in 512..810     -> "PCS 1900 MHz"
-            else -> "Unknown ARFCN ($arfcn)"
+    private fun getQualityDescription(dbm: Int): String {
+        return when {
+            dbm >= -70 -> "Excellent"
+            dbm >= -85 -> "Good"
+            dbm >= -100 -> "Fair"
+            dbm >= -110 -> "Poor"
+            dbm != -999 -> "Very Poor"
+            else -> "Not available"
         }
     }
-
     private fun displayUnavailable() {
         signalPowerText.text = "Not available"
         sinrText.text = "Not available"

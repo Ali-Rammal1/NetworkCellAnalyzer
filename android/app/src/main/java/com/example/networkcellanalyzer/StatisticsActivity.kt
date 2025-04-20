@@ -248,11 +248,17 @@ class StatisticsActivity : AppCompatActivity() {
         }
 
         val summaryObj = data.getJSONObject("summary")
+
+        // Filter LTE SNR values only (numeric and meaningful)
+        val avgSnrValue = if (summaryObj.has("avgSnr") && !summaryObj.isNull("avgSnr")) {
+            val snr = summaryObj.getDouble("avgSnr")
+            if (snr in -30.0..30.0) snr.toFloat() else null  // Filter out placeholder text like "Excellent"
+        } else null
+
         val summary = StatsSummary(
             avgSignalStrength = if (summaryObj.has("avgSignalStrength") && !summaryObj.isNull("avgSignalStrength"))
                 summaryObj.getDouble("avgSignalStrength").toFloat() else null,
-            avgSnr = if (summaryObj.has("avgSnr") && !summaryObj.isNull("avgSnr"))
-                summaryObj.getDouble("avgSnr").toFloat() else null,
+            avgSnr = avgSnrValue,
             dataPoints = summaryObj.optInt("dataPoints", 0)
         )
 
