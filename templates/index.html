@@ -1,203 +1,1486 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Network Cell Analyzer Dashboard</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"
+      rel="stylesheet"
+    />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <style>
-        /* Styles remain the same */
-        .stat-card { transition: all 0.3s ease; }
-        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-        .chart-container { position: relative; height: 300px; width: 100%; }
-        .custom-tab { transition: all 0.2s ease; }
-        .custom-tab.active { border-bottom: 3px solid #3B82F6; color: #2563EB; font-weight: 600; }
-        .custom-tab:hover:not(.active) { background-color: #F3F4F6; }
-        .refresh-button-svg { transition: transform 0.5s ease; }
-        .refresh-button.loading .refresh-button-svg { transform: rotate(360deg); animation: spin 1s linear infinite; }
-        .pulse { animation: pulse 1.5s infinite cubic-bezier(0.4, 0, 0.6, 1); }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        .spinner { border: 4px solid #e5e7eb; border-top: 4px solid #3B82F6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .custom-dropdown { appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
-        .data-table { border-collapse: separate; border-spacing: 0; width: 100%; }
-        .data-table thead th { position: sticky; top: 0; background-color: #f9fafb; z-index: 10; border-bottom: 2px solid #e5e7eb; }
-        .data-table th, .data-table td { white-space: nowrap; padding: 0.5rem 1rem; /* Slightly reduced padding */ }
-        .data-table tbody tr:hover { background-color: #f3f4f6; }
-        .truncate { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .table-container { max-height: 500px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 0.375rem; }
-        .table-container > table { min-width: 100%; }
+      /* Styles remain the same */
+      .stat-card {
+        transition: all 0.3s ease;
+      }
+      .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+          0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+      }
+      .custom-tab {
+        transition: all 0.2s ease;
+      }
+      .custom-tab.active {
+        border-bottom: 3px solid #3b82f6;
+        color: #2563eb;
+        font-weight: 600;
+      }
+      .custom-tab:hover:not(.active) {
+        background-color: #f3f4f6;
+      }
+      .refresh-button-svg {
+        transition: transform 0.5s ease;
+      }
+      .refresh-button.loading .refresh-button-svg {
+        transform: rotate(360deg);
+        animation: spin 1s linear infinite;
+      }
+      .pulse {
+        animation: pulse 1.5s infinite cubic-bezier(0.4, 0, 0.6, 1);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+      }
+      .spinner {
+        border: 4px solid #e5e7eb;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .custom-dropdown {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.5rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+        padding-right: 2.5rem;
+      }
+      .data-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        width: 100%;
+      }
+      .data-table thead th {
+        position: sticky;
+        top: 0;
+        background-color: #f9fafb;
+        z-index: 10;
+        border-bottom: 2px solid #e5e7eb;
+      }
+      .data-table th,
+      .data-table td {
+        white-space: nowrap;
+        padding: 0.5rem 1rem; /* Slightly reduced padding */
+      }
+      .data-table tbody tr:hover {
+        background-color: #f3f4f6;
+      }
+      .truncate {
+        max-width: 150px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .table-container {
+        max-height: 500px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+      }
+      .table-container > table {
+        min-width: 100%;
+      }
     </style>
-</head>
-<body class="bg-gray-100 min-h-screen text-gray-800">
+  </head>
+  <body class="bg-gray-100 min-h-screen text-gray-800">
     <div class="container mx-auto px-4 py-8 max-w-7xl">
-        <!-- Header, Loading, Error, Cards, Tabs structure remains identical -->
-        <header class="mb-8">
-             <div class="flex flex-wrap justify-between items-center mb-4 gap-4"> <h1 class="text-3xl font-bold text-gray-800">Network Cell Analyzer</h1> <div class="flex items-center space-x-4"> <div class="relative"> <label for="time-period" class="block text-sm font-medium text-gray-700 mb-1 sr-only">Time Period</label> <select id="time-period" class="custom-dropdown block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm bg-white"> <option value="1m">Last Minute</option> <option value="5m">Last 5 Minutes</option> <option value="15m">Last 15 Minutes</option> <option value="30m">Last 30 Minutes</option> <option value="1h" selected>Last Hour</option> <option value="6h">Last 6 Hours</option> <option value="12h">Last 12 Hours</option> <option value="24h">Last 24 Hours</option> <option value="7d">Last 7 Days</option> <option value="30d">Last 30 Days</option> </select> </div> <button id="refresh-button" title="Refresh Data" class="flex items-center text-blue-600 hover:text-blue-800 focus:outline-none transition-colors p-2 rounded-md hover:bg-blue-100"> <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 refresh-button-svg" viewBox="0 0 20 20" fill="currentColor"> <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" /> </svg> <span id="refresh-text" class="sr-only">Refresh</span> </button> </div> </div>
-             <p class="text-gray-500 text-xs" id="last-updated-text">Last updated: <span id="stats-timestamp">-</span> (Local Time)</p>
-        </header>
-         <div id="loading" class="fixed inset-0 bg-gray-500 bg-opacity-50 flex flex-col items-center justify-center z-50 hidden"> <div class="spinner mb-4"></div> <p class="text-white text-lg font-medium">Loading data...</p> </div>
-         <div id="error-message" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 hidden" role="alert"> <strong class="font-bold">Error:</strong> <span class="block sm:inline" id="error-text">Failed to load data.</span> <span class="absolute top-0 bottom-0 right-0 px-4 py-3" onclick="this.parentElement.style.display='none';"> <svg class="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><title>Close</title><path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"/></svg> </span> </div>
-         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"> <div class="stat-card bg-white rounded-lg shadow p-6 flex flex-col"> <h3 class="text-sm font-medium text-gray-500 mb-1">Active Users</h3> <div class="flex items-end justify-between mt-auto"> <p class="text-3xl font-bold text-blue-600" id="active-users">-</p> <p class="text-xs text-gray-400" id="active-users-period">in period</p> </div> </div> <div class="stat-card bg-white rounded-lg shadow p-6 flex flex-col"> <h3 class="text-sm font-medium text-gray-500 mb-1">Total Unique Users</h3> <div class="flex items-end justify-between mt-auto"> <p class="text-3xl font-bold text-indigo-600" id="total-users">-</p> <p class="text-xs text-gray-400">all time</p> </div> </div> <div class="stat-card bg-white rounded-lg shadow p-6 flex flex-col"> <h3 class="text-sm font-medium text-gray-500 mb-1">Dominant Operator</h3> <div class="flex items-end justify-between mt-auto"> <p class="text-2xl font-bold text-green-600 truncate" id="top-operator" title="None">-</p> <p class="text-xs text-gray-400">in period</p> </div> </div> <div class="stat-card bg-white rounded-lg shadow p-6 flex flex-col"> <h3 class="text-sm font-medium text-gray-500 mb-1">Dominant Brand</h3> <div class="flex items-end justify-between mt-auto"> <p class="text-2xl font-bold text-purple-600 truncate" id="top-brand" title="None">-</p> <p class="text-xs text-gray-400">in period</p> </div> </div> </div>
-         <div class="mb-6 border-b border-gray-300"> <ul class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500" role="tablist"> <li class="mr-2" role="presentation"><button class="custom-tab active inline-block p-4 rounded-t-lg border-b-2" id="overview-tab" data-tab="overview">Overview</button></li> <li class="mr-2" role="presentation"><button class="custom-tab inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" id="devices-tab" data-tab="devices">Devices</button></li> <li class="mr-2" role="presentation"><button class="custom-tab inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" id="statistics-tab" data-tab="statistics">Statistics</button></li> <li class="mr-2" role="presentation"><button class="custom-tab inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300" id="data-tab" data-tab="raw-data">Raw Data</button></li> </ul> </div>
-
-        <!-- Tab Content Container -->
-        <div id="tab-content-container">
-             <div id="overview-content" class="tab-content">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"> <div class="bg-white rounded-lg shadow p-6"><h3 class="text-lg font-semibold text-gray-700 mb-4">Network Distribution</h3><div class="chart-container"><canvas id="network-chart"></canvas></div></div> <div class="bg-white rounded-lg shadow p-6"><h3 class="text-lg font-semibold text-gray-700 mb-4">Operator Distribution</h3><div class="chart-container"><canvas id="operator-chart"></canvas></div></div> </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"> <div class="bg-white rounded-lg shadow p-6"><h3 class="text-lg font-semibold text-gray-700 mb-4">Avg Signal Power by Network</h3><div class="chart-container"><canvas id="signal-chart"></canvas></div></div>
-                <!-- *** UPDATED Chart Title and Canvas ID *** -->
-                <div class="bg-white rounded-lg shadow p-6"><h3 class="text-lg font-semibold text-gray-700 mb-4">Average SNR by Network Type</h3><div class="chart-container"><canvas id="snr-chart"></canvas></div></div>
-                <!-- *** END UPDATE *** -->
-                </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8"> <div class="bg-white rounded-lg shadow p-6"><h3 class="text-lg font-semibold text-gray-700 mb-4">Connectivity % by Operator</h3><div class="chart-container"><canvas id="operator-connectivity-chart"></canvas></div></div> <div class="bg-white rounded-lg shadow p-6"><h3 class="text-lg font-semibold text-gray-700 mb-4">Connectivity % by Network</h3><div class="chart-container"><canvas id="network-connectivity-chart"></canvas></div></div> </div>
+      <!-- Header, Loading, Error, Cards, Tabs structure remains identical -->
+      <header class="mb-8">
+        <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+          <h1 class="text-3xl font-bold text-gray-800">
+            Network Cell Analyzer
+          </h1>
+          <div class="flex items-center space-x-4">
+            <div class="relative">
+              <label
+                for="time-period"
+                class="block text-sm font-medium text-gray-700 mb-1 sr-only"
+                >Time Period</label
+              >
+              <select
+                id="time-period"
+                class="custom-dropdown block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md shadow-sm bg-white"
+              >
+                <option value="1m">Last Minute</option>
+                <option value="5m">Last 5 Minutes</option>
+                <option value="15m">Last 15 Minutes</option>
+                <option value="30m">Last 30 Minutes</option>
+                <option value="1h" selected>Last Hour</option>
+                <option value="6h">Last 6 Hours</option>
+                <option value="12h">Last 12 Hours</option>
+                <option value="24h">Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+              </select>
             </div>
+            <button
+              id="refresh-button"
+              title="Refresh Data"
+              class="flex items-center text-blue-600 hover:text-blue-800 focus:outline-none transition-colors p-2 rounded-md hover:bg-blue-100"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5 refresh-button-svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              <span id="refresh-text" class="sr-only">Refresh</span>
+            </button>
+          </div>
+        </div>
+        <p class="text-gray-500 text-xs" id="last-updated-text">
+          Last updated: <span id="stats-timestamp">-</span> (Local Time)
+        </p>
+      </header>
+      <div
+        id="loading"
+        class="fixed inset-0 bg-gray-500 bg-opacity-50 flex flex-col items-center justify-center z-50 hidden"
+      >
+        <div class="spinner mb-4"></div>
+        <p class="text-white text-lg font-medium">Loading data...</p>
+      </div>
+      <div
+        id="error-message"
+        class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 hidden"
+        role="alert"
+      >
+        <strong class="font-bold">Error:</strong>
+        <span class="block sm:inline" id="error-text"
+          >Failed to load data.</span
+        >
+        <span
+          class="absolute top-0 bottom-0 right-0 px-4 py-3"
+          onclick="this.parentElement.style.display='none';"
+        >
+          <svg
+            class="fill-current h-6 w-6 text-red-500"
+            role="button"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+          >
+            <title>Close</title>
+            <path
+              d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697L10 8.183l2.651-3.031a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z"
+            />
+          </svg>
+        </span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="stat-card bg-white rounded-lg shadow p-6 flex flex-col">
+          <h3 class="text-sm font-medium text-gray-500 mb-1">Active Users</h3>
+          <div class="flex items-end justify-between mt-auto">
+            <p class="text-3xl font-bold text-blue-600" id="active-users">-</p>
+            <p class="text-xs text-gray-400" id="active-users-period">
+              in period
+            </p>
+          </div>
+        </div>
+        <div class="stat-card bg-white rounded-lg shadow p-6 flex flex-col">
+          <h3 class="text-sm font-medium text-gray-500 mb-1">
+            Total Unique Users
+          </h3>
+          <div class="flex items-end justify-between mt-auto">
+            <p class="text-3xl font-bold text-indigo-600" id="total-users">-</p>
+            <p class="text-xs text-gray-400">all time</p>
+          </div>
+        </div>
+        <div class="stat-card bg-white rounded-lg shadow p-6 flex flex-col">
+          <h3 class="text-sm font-medium text-gray-500 mb-1">
+            Dominant Operator
+          </h3>
+          <div class="flex items-end justify-between mt-auto">
+            <p
+              class="text-2xl font-bold text-green-600 truncate"
+              id="top-operator"
+              title="None"
+            >
+              -
+            </p>
+            <p class="text-xs text-gray-400">in period</p>
+          </div>
+        </div>
+        <div class="stat-card bg-white rounded-lg shadow p-6 flex flex-col">
+          <h3 class="text-sm font-medium text-gray-500 mb-1">Dominant Brand</h3>
+          <div class="flex items-end justify-between mt-auto">
+            <p
+              class="text-2xl font-bold text-purple-600 truncate"
+              id="top-brand"
+              title="None"
+            >
+              -
+            </p>
+            <p class="text-xs text-gray-400">in period</p>
+          </div>
+        </div>
+      </div>
+      <div class="mb-6 border-b border-gray-300">
+        <ul
+          class="flex flex-wrap -mb-px text-sm font-medium text-center text-gray-500"
+          role="tablist"
+        >
+          <li class="mr-2" role="presentation">
+            <button
+              class="custom-tab active inline-block p-4 rounded-t-lg border-b-2"
+              id="overview-tab"
+              data-tab="overview"
+            >
+              Overview
+            </button>
+          </li>
+          <li class="mr-2" role="presentation">
+            <button
+              class="custom-tab inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300"
+              id="devices-tab"
+              data-tab="devices"
+            >
+              Devices
+            </button>
+          </li>
+          <li class="mr-2" role="presentation">
+            <button
+              class="custom-tab inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300"
+              id="statistics-tab"
+              data-tab="statistics"
+            >
+              Statistics
+            </button>
+          </li>
+          <li class="mr-2" role="presentation">
+            <button
+              class="custom-tab inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300"
+              id="data-tab"
+              data-tab="raw-data"
+            >
+              Raw Data
+            </button>
+          </li>
+          <li class="mr-2" role="presentation">
+            <button
+              class="custom-tab inline-block p-4 rounded-t-lg border-b-2 border-transparent hover:text-gray-600 hover:border-gray-300"
+              id="user-stats-tab"
+              data-tab="user-stats"
+            >
+              User Stats
+            </button>
+          </li>
+        </ul>
+      </div>
 
-             <div id="devices-content" class="tab-content hidden"> <div class="grid grid-cols-1 gap-6 mb-8"> <div class="bg-white rounded-lg shadow p-6"><h3 class="text-lg font-semibold text-gray-700 mb-4">Device Brand Distribution</h3><div class="chart-container" style="height: 350px;"><canvas id="device-brand-chart"></canvas></div></div> </div> <div class="bg-white rounded-lg shadow overflow-hidden"> <div class="px-6 py-4 border-b border-gray-200"><h3 class="text-lg font-semibold text-gray-700">All Identified Devices</h3><p class="text-sm text-gray-500 mt-1">Based on unique MAC addresses seen</p></div> <div class="table-container"> <table class="data-table min-w-full"> <thead class="bg-gray-50"> <tr> <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MAC Address</th> <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last IP Address</th> <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Seen</th> <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th> </tr> </thead> <tbody id="devices-table-body" class="bg-white divide-y divide-gray-200"></tbody> </table> </div> </div> </div>
-
-            <div id="statistics-content" class="tab-content hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                     <div class="bg-white rounded-lg shadow"> <div class="px-6 py-4 border-b"><h3 class="text-lg font-semibold text-gray-700">Network Type Stats</h3></div> <div class="table-container"> <table class="data-table min-w-full"> <thead class="bg-gray-50"><tr><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Network Type</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Signal</th>
-                     <!-- *** UPDATED Header *** -->
-                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg SNR</th>
-                     <!-- *** END UPDATE *** -->
-                     </tr></thead> <tbody id="network-stats-body" class="bg-white divide-y divide-gray-200"></tbody> </table> </div> </div>
-                     <div class="bg-white rounded-lg shadow"> <div class="px-6 py-4 border-b"><h3 class="text-lg font-semibold text-gray-700">Operator Stats</h3></div> <div class="table-container"> <table class="data-table min-w-full"> <thead class="bg-gray-50"><tr><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operator</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Connectivity %</th></tr></thead> <tbody id="operator-stats-body" class="bg-white divide-y divide-gray-200"></tbody> </table> </div> </div>
-                </div>
+      <!-- Tab Content Container -->
+      <div id="tab-content-container">
+        <div id="overview-content" class="tab-content">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+              <h3 class="text-lg font-semibold text-gray-700 mb-4">
+                Network Distribution
+              </h3>
+              <div class="chart-container">
+                <canvas id="network-chart"></canvas>
+              </div>
             </div>
+            <div class="bg-white rounded-lg shadow p-6">
+              <h3 class="text-lg font-semibold text-gray-700 mb-4">
+                Operator Distribution
+              </h3>
+              <div class="chart-container">
+                <canvas id="operator-chart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+              <h3 class="text-lg font-semibold text-gray-700 mb-4">
+                Avg Signal Power by Network
+              </h3>
+              <div class="chart-container">
+                <canvas id="signal-chart"></canvas>
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+              <h3 class="text-lg font-semibold text-gray-700 mb-4">
+                Average SNR by Network Type
+              </h3>
+              <div class="chart-container">
+                <canvas id="snr-chart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+              <h3 class="text-lg font-semibold text-gray-700 mb-4">
+                Connectivity % by Operator
+              </h3>
+              <div class="chart-container">
+                <canvas id="operator-connectivity-chart"></canvas>
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+              <h3 class="text-lg font-semibold text-gray-700 mb-4">
+                Connectivity % by Network
+              </h3>
+              <div class="chart-container">
+                <canvas id="network-connectivity-chart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
 
-             <div id="raw-data-content" class="tab-content hidden">
-                <div class="bg-white rounded-lg shadow overflow-hidden">
-                    <div class="border-b border-gray-200 px-6 py-4 flex items-center justify-between"><h3 class="text-lg font-semibold text-gray-700">Latest Data per Active User</h3><p class="text-sm text-gray-500" id="raw-data-info">Most recent record for users active in period</p></div>
-                    <div class="table-container">
-                        <table class="data-table min-w-full">
-                             <thead class="bg-gray-50">
-                                <tr>
-                                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MAC</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operator</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Network</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signal</th>
-                                    <!-- *** UPDATED Header *** -->
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SNR</th>
-                                    <!-- *** END UPDATE *** -->
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Band</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cell ID</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client Time</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Upload Time</th>
-                                </tr>
-                            </thead>
-                            <tbody id="latest-data-body" class="bg-white divide-y divide-gray-200"></tbody>
-                        </table>
+        <div id="devices-content" class="tab-content hidden">
+          <div class="grid grid-cols-1 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+              <h3 class="text-lg font-semibold text-gray-700 mb-4">
+                Device Brand Distribution
+              </h3>
+              <div class="chart-container" style="height: 350px">
+                <canvas id="device-brand-chart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h3 class="text-lg font-semibold text-gray-700">
+                All Identified Devices
+              </h3>
+              <p class="text-sm text-gray-500 mt-1">
+                Based on unique MAC addresses seen
+              </p>
+            </div>
+            <div class="table-container">
+              <table class="data-table min-w-full">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      MAC Address
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Last IP Address
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Last Seen
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody
+                  id="devices-table-body"
+                  class="bg-white divide-y divide-gray-200"
+                ></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="statistics-content" class="tab-content hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow">
+              <div class="px-6 py-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-700">
+                  Network Type Stats
+                </h3>
+              </div>
+              <div class="table-container">
+                <table class="data-table min-w-full">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Network Type
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Users
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Avg Signal
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Avg SNR
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    id="network-stats-body"
+                    class="bg-white divide-y divide-gray-200"
+                  ></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="bg-white rounded-lg shadow">
+              <div class="px-6 py-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-700">
+                  Operator Stats
+                </h3>
+              </div>
+              <div class="table-container">
+                <table class="data-table min-w-full">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Operator
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Users
+                      </th>
+                      <th
+                        scope="col"
+                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      >
+                        Connectivity %
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    id="operator-stats-body"
+                    class="bg-white divide-y divide-gray-200"
+                  ></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="raw-data-content" class="tab-content hidden">
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div
+              class="border-b border-gray-200 px-6 py-4 flex items-center justify-between"
+            >
+              <h3 class="text-lg font-semibold text-gray-700">
+                Latest Data per Active User
+              </h3>
+              <p class="text-sm text-gray-500" id="raw-data-info">
+                Most recent record for users active in period
+              </p>
+            </div>
+            <div class="table-container">
+              <table class="data-table min-w-full">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      User ID
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Email
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      IP
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      MAC
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Operator
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Network
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Signal
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      SNR
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Band
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Cell ID
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Device
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Client Time
+                    </th>
+                    <th
+                      scope="col"
+                      class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Upload Time
+                    </th>
+                  </tr>
+                </thead>
+                <tbody
+                  id="latest-data-body"
+                  class="bg-white divide-y divide-gray-200"
+                ></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="user-stats-content" class="tab-content hidden">
+          <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">
+              User Statistics
+            </h3>
+            <div class="flex flex-wrap items-end gap-4 mb-6">
+              <div class="flex-grow max-w-md">
+                <label
+                  for="user-email"
+                  class="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  User Email
+                </label>
+                <div class="mt-1 flex rounded-md shadow-sm">
+                  <input
+                    type="email"
+                    name="user-email"
+                    id="user-email"
+                    class="focus:ring-blue-500 focus:border-blue-500 flex-1 block w-full rounded-md sm:text-sm border-gray-300"
+                    placeholder="user@example.com"
+                  />
+                  <button
+                    type="button"
+                    id="search-user-btn"
+                    class="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div id="user-loading" class="hidden py-10 flex justify-center">
+              <div class="spinner"></div>
+            </div>
+            <div
+              id="user-error"
+              class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
+              role="alert"
+            >
+              <span id="user-error-text">User not found</span>
+            </div>
+            <div id="user-stats-container" class="hidden">
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 class="text-md font-semibold text-gray-700 mb-4">
+                    User Info
+                  </h4>
+                  <div class="space-y-3">
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Email:</span>
+                      <span id="user-email-display" class="font-medium"></span>
                     </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">User ID:</span>
+                      <span
+                        id="user-id-display"
+                        class="font-medium font-mono"
+                      ></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">MAC Address:</span>
+                      <span
+                        id="user-mac-display"
+                        class="font-medium font-mono"
+                      ></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">IP Address:</span>
+                      <span
+                        id="user-ip-display"
+                        class="font-medium font-mono"
+                      ></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Device:</span>
+                      <span id="user-device-display" class="font-medium"></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Last Seen:</span>
+                      <span
+                        id="user-last-seen-display"
+                        class="font-medium"
+                      ></span>
+                    </div>
+                  </div>
                 </div>
+                <div class="bg-white rounded-lg border border-gray-200 p-6">
+                  <h4 class="text-md font-semibold text-gray-700 mb-4">
+                    Connection Info
+                  </h4>
+                  <div class="space-y-3">
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Operator:</span>
+                      <span
+                        id="user-operator-display"
+                        class="font-medium"
+                      ></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Network Type:</span>
+                      <span
+                        id="user-network-display"
+                        class="font-medium"
+                      ></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Signal Power:</span>
+                      <span id="user-signal-display" class="font-medium"></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">SNR:</span>
+                      <span id="user-snr-display" class="font-medium"></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Band:</span>
+                      <span id="user-band-display" class="font-medium"></span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-gray-500">Cell ID:</span>
+                      <span
+                        id="user-cell-display"
+                        class="font-medium font-mono"
+                      ></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="bg-white rounded-lg border border-gray-200 overflow-hidden"
+              >
+                <div class="px-6 py-4 border-b border-gray-200">
+                  <h4 class="text-md font-semibold text-gray-700">
+                    Connection History
+                  </h4>
+                </div>
+                <div class="table-container max-h-80">
+                  <table class="data-table min-w-full">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th
+                          scope="col"
+                          class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Timestamp
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Operator
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Network
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Signal
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          SNR
+                        </th>
+                        <th
+                          scope="col"
+                          class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Cell ID
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody
+                      id="user-history-body"
+                      class="bg-white divide-y divide-gray-200"
+                    ></tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-        </div> <!-- End Tab Content Container -->
-    </div> <!-- End Container -->
+            <div
+              id="user-not-found"
+              class="hidden py-10 text-center text-gray-500"
+            >
+              No data found for this user. Please check the email and try again.
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End Tab Content Container -->
+    </div>
+    <!-- End Container -->
 
     <script>
-        // Global chart objects
-        // *** RENAMED sinrChart -> snrChart ***
-        let networkChart, operatorChart, signalChart, snrChart,
-            operatorConnectivityChart, networkConnectivityChart, deviceBrandChart;
+      // Global chart objects
+      let networkChart,
+        operatorChart,
+        signalChart,
+        snrChart,
+        operatorConnectivityChart,
+        networkConnectivityChart,
+        deviceBrandChart;
 
-        // Auto-refresh interval ID
-        let refreshIntervalId = null;
-        const REFRESH_INTERVAL_MS = 30000; // Refresh every 30 seconds
+      // Auto-refresh interval ID
+      let refreshIntervalId = null;
+      const REFRESH_INTERVAL_MS = 30000; // Refresh every 30 seconds
 
-        // DOM elements
-        const elements = {
-            activeUsers: document.getElementById('active-users'), totalUsers: document.getElementById('total-users'),
-            topOperator: document.getElementById('top-operator'), topBrand: document.getElementById('top-brand'),
-            latestDataBody: document.getElementById('latest-data-body'), statsTimestamp: document.getElementById('stats-timestamp'),
-            errorMessage: document.getElementById('error-message'), errorText: document.getElementById('error-text'),
-            loading: document.getElementById('loading'), timePeriodSelect: document.getElementById('time-period'),
-            refreshButton: document.getElementById('refresh-button'), devicesTableBody: document.getElementById('devices-table-body'),
-            networkStatsBody: document.getElementById('network-stats-body'), operatorStatsBody: document.getElementById('operator-stats-body'),
-            activeUsersPeriod: document.getElementById('active-users-period'), rawDataInfo: document.getElementById('raw-data-info'),
-            tabs: document.querySelectorAll('[data-tab]'), tabContents: document.querySelectorAll('.tab-content')
+      // Current user email for user stats tab
+      let currentUserEmail = null;
+
+      // DOM elements
+      const elements = {
+        activeUsers: document.getElementById("active-users"),
+        totalUsers: document.getElementById("total-users"),
+        topOperator: document.getElementById("top-operator"),
+        topBrand: document.getElementById("top-brand"),
+        latestDataBody: document.getElementById("latest-data-body"),
+        statsTimestamp: document.getElementById("stats-timestamp"),
+        errorMessage: document.getElementById("error-message"),
+        errorText: document.getElementById("error-text"),
+        loading: document.getElementById("loading"),
+        timePeriodSelect: document.getElementById("time-period"),
+        refreshButton: document.getElementById("refresh-button"),
+        devicesTableBody: document.getElementById("devices-table-body"),
+        networkStatsBody: document.getElementById("network-stats-body"),
+        operatorStatsBody: document.getElementById("operator-stats-body"),
+        activeUsersPeriod: document.getElementById("active-users-period"),
+        rawDataInfo: document.getElementById("raw-data-info"),
+        tabs: document.querySelectorAll("[data-tab]"),
+        tabContents: document.querySelectorAll(".tab-content"),
+        userEmail: document.getElementById("user-email"),
+        searchUserBtn: document.getElementById("search-user-btn"),
+        userLoading: document.getElementById("user-loading"),
+        userError: document.getElementById("user-error"),
+        userErrorText: document.getElementById("user-error-text"),
+        userStatsContainer: document.getElementById("user-stats-container"),
+        userNotFound: document.getElementById("user-not-found"),
+        userEmailDisplay: document.getElementById("user-email-display"),
+        userIdDisplay: document.getElementById("user-id-display"),
+        userMacDisplay: document.getElementById("user-mac-display"),
+        userIpDisplay: document.getElementById("user-ip-display"),
+        userDeviceDisplay: document.getElementById("user-device-display"),
+        userLastSeenDisplay: document.getElementById("user-last-seen-display"),
+        userOperatorDisplay: document.getElementById("user-operator-display"),
+        userNetworkDisplay: document.getElementById("user-network-display"),
+        userSignalDisplay: document.getElementById("user-signal-display"),
+        userSnrDisplay: document.getElementById("user-snr-display"),
+        userBandDisplay: document.getElementById("user-band-display"),
+        userCellDisplay: document.getElementById("user-cell-display"),
+        userHistoryBody: document.getElementById("user-history-body"),
+      };
+
+      // --- Chart Configuration (Common options remain the same) ---
+      const commonChartOptions = (type = "doughnut") => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: type === "bar" ? "top" : "right",
+            labels: { boxWidth: 12, padding: 15 },
+          },
+          tooltip: { bodySpacing: 4, padding: 10 },
+        },
+      });
+      const barChartOptions = {
+        ...commonChartOptions("bar"),
+        scales: {
+          y: { beginAtZero: false, ticks: { padding: 10 } },
+          x: { ticks: { padding: 5 } },
+        },
+      };
+      const pieChartOptions = (isPercent = false) => ({
+        ...commonChartOptions("pie"),
+        plugins: {
+          ...commonChartOptions("pie").plugins,
+          tooltip: {
+            ...commonChartOptions("pie").plugins.tooltip,
+            callbacks: {
+              label: function (context) {
+                let label = context.label || "";
+                if (label) {
+                  label += ": ";
+                }
+                if (context.parsed !== null) {
+                  let value = context.dataset.data[context.dataIndex];
+                  label += isPercent ? `${value}%` : value;
+                }
+                return label;
+              },
+            },
+          },
+        },
+      });
+
+      // --- Initialization ---
+      function initializeCharts() {
+        const chartColors = [
+          "#3B82F6",
+          "#10B981",
+          "#F59E0B",
+          "#EF4444",
+          "#8B5CF6",
+          "#EC4899",
+          "#6366F1",
+          "#D97706",
+          "#059669",
+          "#6B7280",
+        ];
+        const createChart = (id, type, options, label = "Count") => {
+          if (!document.getElementById(id)) {
+            console.error(`Chart canvas with ID ${id} not found.`);
+            return null;
+          }
+          const ctx = document.getElementById(id).getContext("2d");
+          return new Chart(ctx, {
+            type: type,
+            data: {
+              labels: [],
+              datasets: [
+                {
+                  label: label,
+                  data: [],
+                  backgroundColor:
+                    type === "bar" ? chartColors[0] : chartColors,
+                  borderColor: type === "bar" ? chartColors[0] : "#fff",
+                  borderWidth: type === "bar" ? 0 : 1,
+                },
+              ],
+            },
+            options: options,
+          });
         };
+        networkChart = createChart(
+          "network-chart",
+          "doughnut",
+          pieChartOptions()
+        );
+        operatorChart = createChart(
+          "operator-chart",
+          "doughnut",
+          pieChartOptions()
+        );
+        signalChart = createChart(
+          "signal-chart",
+          "bar",
+          barChartOptions,
+          "Avg Signal (dBm)"
+        );
+        snrChart = createChart(
+          "snr-chart",
+          "bar",
+          barChartOptions,
+          "Avg SNR (dB)"
+        );
+        operatorConnectivityChart = createChart(
+          "operator-connectivity-chart",
+          "pie",
+          pieChartOptions(true),
+          "Connectivity"
+        );
+        networkConnectivityChart = createChart(
+          "network-connectivity-chart",
+          "pie",
+          pieChartOptions(true),
+          "Connectivity"
+        );
+        deviceBrandChart = createChart(
+          "device-brand-chart",
+          "bar",
+          barChartOptions,
+          "Device Count"
+        );
+      }
 
-        // --- Chart Configuration (Common options remain the same) ---
-        const commonChartOptions = (type = 'doughnut') => ({ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: type === 'bar' ? 'top' : 'right', labels: { boxWidth: 12, padding: 15 } }, tooltip: { bodySpacing: 4, padding: 10, } } });
-        const barChartOptions = { ...commonChartOptions('bar'), scales: { y: { beginAtZero: false, ticks: { padding: 10 } }, x: { ticks: { padding: 5 } } } };
-        const pieChartOptions = (isPercent = false) => ({ ...commonChartOptions('pie'), plugins: { ...commonChartOptions('pie').plugins, tooltip: { ...commonChartOptions('pie').plugins.tooltip, callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { let value = context.dataset.data[context.dataIndex]; label += isPercent ? `${value}%` : value; } return label; } } } } });
+      // --- Helper Functions ---
+      const getText = (value, defaultVal = "N/A") =>
+        value !== null && value !== undefined && value !== ""
+          ? value
+          : defaultVal;
+      const formatDateTime = (isoString) => {
+        if (!isoString) return "N/A";
+        try {
+          return new Date(isoString).toLocaleString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          });
+        } catch (e) {
+          return "Invalid Date";
+        }
+      };
+      const isDeviceActive = (lastSeen) => {
+        if (!lastSeen) return false;
+        try {
+          return new Date(lastSeen) > new Date(Date.now() - 5 * 60000);
+        } catch (e) {
+          return false;
+        }
+      };
+      const addCell = (row, content, cssClass = "", title = "") => {
+        const cell = row.insertCell();
+        cell.className = `px-4 py-2 text-sm ${cssClass}`;
+        if (content instanceof Node) {
+          cell.appendChild(content);
+        } else {
+          cell.textContent = getText(content);
+        }
+        const effectiveText =
+          content instanceof Node ? content.textContent : getText(content);
+        if (
+          title ||
+          (cssClass.includes("truncate") &&
+            effectiveText &&
+            effectiveText !== "N/A")
+        ) {
+          cell.title = title || effectiveText;
+        }
+      };
+      function updateDistributionChart(chart, data) {
+        if (!chart || !data) return;
+        const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+        chart.data.labels = entries.map(([key]) => key);
+        chart.data.datasets[0].data = entries.map(([, value]) => value);
+        chart.update();
+      }
+      function updateBarChart(chart, data) {
+        if (!chart || !data) return;
+        const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
+        chart.data.labels = entries.map(([key]) => key);
+        chart.data.datasets[0].data = entries.map(([, value]) =>
+          value !== null ? value.toFixed(1) : null
+        );
+        chart.update();
+      }
 
-        // --- Initialization ---
-        function initializeCharts() {
-            const chartColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#D97706', '#059669', '#6B7280'];
-            const createChart = (id, type, options, label = 'Count') => { if (!document.getElementById(id)) { console.error(`Chart canvas with ID ${id} not found.`); return null; } const ctx = document.getElementById(id).getContext('2d'); return new Chart(ctx, { type: type, data: { labels: [], datasets: [{ label: label, data: [], backgroundColor: type === 'bar' ? chartColors[0] : chartColors, borderColor: type === 'bar' ? chartColors[0] : '#fff', borderWidth: type === 'bar' ? 0 : 1 }] }, options: options }); };
-            networkChart = createChart('network-chart', 'doughnut', pieChartOptions());
-            operatorChart = createChart('operator-chart', 'doughnut', pieChartOptions());
-            signalChart = createChart('signal-chart', 'bar', barChartOptions, 'Avg Signal (dBm)');
-            // *** UPDATED Chart ID and Label ***
-            snrChart = createChart('snr-chart', 'bar', barChartOptions, 'Avg SNR (dB)');
-            // *** END UPDATE ***
-            operatorConnectivityChart = createChart('operator-connectivity-chart', 'pie', pieChartOptions(true), 'Connectivity');
-            networkConnectivityChart = createChart('network-connectivity-chart', 'pie', pieChartOptions(true), 'Connectivity');
-            deviceBrandChart = createChart('device-brand-chart', 'bar', barChartOptions, 'Device Count');
+      // --- UI Update Function ---
+      function updateUI(stats) {
+        console.log("Updating UI with stats:", stats);
+        elements.activeUsers.textContent = getText(
+          stats.active_user_count,
+          "0"
+        );
+        elements.totalUsers.textContent = getText(
+          stats.total_unique_users,
+          "0"
+        );
+        elements.activeUsersPeriod.textContent = `in last ${elements.timePeriodSelect.options[
+          elements.timePeriodSelect.selectedIndex
+        ].text.replace("Last ", "")}`;
+        elements.rawDataInfo.textContent = `Most recent record for users active in last ${elements.timePeriodSelect.options[
+          elements.timePeriodSelect.selectedIndex
+        ].text.replace("Last ", "")}`;
+        const findTopItem = (distribution) => {
+          let topItem = { name: "N/A", count: -1 };
+          for (const [item, count] of Object.entries(distribution || {})) {
+            if (item !== "Unknown" && count > topItem.count) {
+              topItem = { name: item, count };
+            }
+          }
+          if (
+            topItem.name === "N/A" &&
+            distribution &&
+            distribution["Unknown"] > 0
+          ) {
+            return { name: "Unknown", count: distribution["Unknown"] };
+          }
+          if (topItem.name === "N/A") {
+            return { name: "N/A", count: 0 };
+          }
+          return topItem;
+        };
+        const topOperator = findTopItem(stats.operator_distribution);
+        const topBrand = findTopItem(stats.device_brand_distribution);
+        elements.topOperator.textContent = getText(topOperator.name);
+        elements.topOperator.title = getText(topOperator.name);
+        elements.topBrand.textContent = getText(topBrand.name);
+        elements.topBrand.title = getText(topBrand.name);
+        elements.statsTimestamp.textContent = formatDateTime(
+          stats.stats_time_utc
+        );
+        updateDistributionChart(networkChart, stats.network_distribution);
+        updateDistributionChart(operatorChart, stats.operator_distribution);
+        updateBarChart(signalChart, stats.avg_signal_by_network);
+        updateBarChart(snrChart, stats.avg_snr_by_network);
+        updateDistributionChart(
+          operatorConnectivityChart,
+          stats.operator_connectivity
+        );
+        updateDistributionChart(
+          networkConnectivityChart,
+          stats.network_connectivity
+        );
+        updateDistributionChart(
+          deviceBrandChart,
+          stats.device_brand_distribution
+        );
+        elements.latestDataBody.innerHTML = "";
+        if (stats.latest_data?.length > 0) {
+          stats.latest_data.forEach((data) => {
+            const row = elements.latestDataBody.insertRow();
+            row.className = "hover:bg-gray-50";
+            addCell(row, data.user_id, "font-mono truncate");
+            addCell(row, data.user_ip, "font-mono");
+            addCell(row, data.user_mac, "font-mono");
+            addCell(row, data.operator);
+            addCell(row, data.network_type);
+            addCell(row, data.signal_power);
+            addCell(row, data.snr);
+            addCell(row, data.frequency_band, "truncate");
+            addCell(row, data.cell_id, "font-mono");
+            addCell(row, data.device_brand);
+            addCell(row, formatDateTime(data.client_timestamp));
+            addCell(row, formatDateTime(data.upload_time));
+          });
+        } else {
+          elements.latestDataBody.innerHTML = `<tr><td colspan="12" class="px-6 py-10 text-center text-sm text-gray-500">No active users found in the selected time period.</td></tr>`;
+        }
+        elements.devicesTableBody.innerHTML = "";
+        if (stats.all_devices?.length > 0) {
+          stats.all_devices.forEach((device) => {
+            const row = elements.devicesTableBody.insertRow();
+            row.className = "hover:bg-gray-50";
+            addCell(row, device.mac, "font-mono text-gray-700");
+            addCell(row, device.ip, "font-mono text-gray-700");
+            addCell(row, formatDateTime(device.last_seen), "text-gray-700");
+            const isActive = isDeviceActive(device.last_seen);
+            const statusBadge = document.createElement("span");
+            statusBadge.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              isActive
+                ? "bg-green-100 text-green-800 pulse"
+                : "bg-gray-100 text-gray-800"
+            }`;
+            statusBadge.textContent = isActive ? "Active" : "Inactive";
+            addCell(row, statusBadge);
+          });
+        } else {
+          elements.devicesTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500">No devices identified yet.</td></tr>`;
+        }
+        elements.networkStatsBody.innerHTML = "";
+        const networkStatsData = Object.entries(
+          stats.network_distribution || {}
+        )
+          .map(([network, count]) => ({
+            network: network,
+            users: count,
+            signal: stats.avg_signal_by_network?.[network],
+            snr: stats.avg_snr_by_network?.[network],
+          }))
+          .sort((a, b) => b.users - a.users);
+        if (networkStatsData.length > 0) {
+          networkStatsData.forEach((data) => {
+            const row = elements.networkStatsBody.insertRow();
+            row.className = "hover:bg-gray-50";
+            addCell(row, data.network, "font-medium text-gray-900");
+            addCell(row, data.users);
+            addCell(
+              row,
+              data.signal !== null && data.signal !== undefined
+                ? `${data.signal.toFixed(1)} dBm`
+                : "N/A"
+            );
+            addCell(
+              row,
+              data.snr !== null && data.snr !== undefined
+                ? `${data.snr.toFixed(1)} dB`
+                : "N/A"
+            );
+          });
+        } else {
+          elements.networkStatsBody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500">No network data available for the selected period.</td></tr>`;
+        }
+        elements.operatorStatsBody.innerHTML = "";
+        const operatorStatsData = Object.entries(
+          stats.operator_distribution || {}
+        )
+          .map(([operator, count]) => ({
+            operator: operator,
+            users: count,
+            connectivity: stats.operator_connectivity?.[operator] || 0,
+          }))
+          .sort((a, b) => b.users - a.users);
+        if (operatorStatsData.length > 0) {
+          operatorStatsData.forEach((data) => {
+            const row = elements.operatorStatsBody.insertRow();
+            row.className = "hover:bg-gray-50";
+            addCell(row, data.operator, "font-medium text-gray-900");
+            addCell(row, data.users);
+            const connectivityCell = row.insertCell();
+            connectivityCell.className = "px-4 py-2 text-sm text-gray-700";
+            const progressContainer = document.createElement("div");
+            progressContainer.className = "flex items-center w-full";
+            const progressBar = document.createElement("div");
+            progressBar.className =
+              "flex-1 bg-gray-200 rounded-full h-2 dark:bg-gray-700 mr-2";
+            const progress = document.createElement("div");
+            progress.className = "bg-blue-600 h-2 rounded-full";
+            progress.style.width = `${data.connectivity}%`;
+            progressBar.appendChild(progress);
+            const percentText = document.createElement("span");
+            percentText.className = "min-w-[40px] text-right text-xs";
+            percentText.textContent = `${data.connectivity.toFixed(1)}%`;
+            progressContainer.appendChild(progressBar);
+            progressContainer.appendChild(percentText);
+            connectivityCell.appendChild(progressContainer);
+          });
+        } else {
+          elements.operatorStatsBody.innerHTML = `<tr><td colspan="3" class="px-6 py-10 text-center text-sm text-gray-500">No operator data available for the selected period.</td></tr>`;
+        }
+      }
+
+      // --- User Stats Functions ---
+      async function fetchUserStats(email) {
+        elements.userLoading.classList.remove("hidden");
+        elements.userError.classList.add("hidden");
+        elements.userStatsContainer.classList.add("hidden");
+        elements.userNotFound.classList.add("hidden");
+
+        try {
+          const selectedPeriod = elements.timePeriodSelect.value;
+          const response = await fetch(
+            `/api/server-user-stats?email=${encodeURIComponent(
+              email
+            )}&period=${selectedPeriod}&_=${new Date().getTime()}`
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+
+          const userData = await response.json();
+
+          if (
+            !userData ||
+            (!userData.userInfo && !userData.connectionHistory)
+          ) {
+            elements.userNotFound.classList.remove("hidden");
+            return;
+          }
+
+          updateUserStatsUI(userData);
+          elements.userStatsContainer.classList.remove("hidden");
+          currentUserEmail = email;
+        } catch (error) {
+          console.error("Error fetching user stats:", error);
+          elements.userErrorText.textContent = `Error: ${error.message}`;
+          elements.userError.classList.remove("hidden");
+        } finally {
+          elements.userLoading.classList.add("hidden");
+        }
+      }
+
+      function updateUserStatsUI(userData) {
+        const { userInfo, connectionHistory, latestConnection } = userData;
+
+        // Update user info section
+        if (userInfo) {
+          elements.userEmailDisplay.textContent = getText(userInfo.email);
+          elements.userIdDisplay.textContent = getText(userInfo.user_id);
+          elements.userMacDisplay.textContent = getText(userInfo.mac);
+          elements.userIpDisplay.textContent = getText(userInfo.ip);
+          elements.userDeviceDisplay.textContent = getText(userInfo.device);
+          elements.userLastSeenDisplay.textContent = formatDateTime(
+            userInfo.last_seen
+          );
         }
 
-        // --- Helper Functions (getText, formatDateTime, isDeviceActive, addCell remain the same) ---
-        const getText = (value, defaultVal = 'N/A') => value !== null && value !== undefined && value !== '' ? value : defaultVal;
-        const formatDateTime = (isoString) => { if (!isoString) return 'N/A'; try { return new Date(isoString).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return 'Invalid Date'; } };
-        const isDeviceActive = (lastSeen) => { if (!lastSeen) return false; try { return new Date(lastSeen) > new Date(Date.now() - 5 * 60000); } catch (e) { return false; } };
-        const addCell = (row, content, cssClass = '', title = '') => { const cell = row.insertCell(); cell.className = `px-4 py-2 text-sm ${cssClass}`; if (content instanceof Node) { cell.appendChild(content); } else { cell.textContent = getText(content); } const effectiveText = (content instanceof Node) ? content.textContent : getText(content); if (title || (cssClass.includes('truncate') && effectiveText && effectiveText !== 'N/A')) { cell.title = title || effectiveText; } };
-        function updateDistributionChart(chart, data) { if (!chart || !data) return; const entries = Object.entries(data).sort((a, b) => b[1] - a[1]); chart.data.labels = entries.map(([key]) => key); chart.data.datasets[0].data = entries.map(([, value]) => value); chart.update(); }
-        function updateBarChart(chart, data) { if (!chart || !data) return; const entries = Object.entries(data).sort((a, b) => b[1] - a[1]); chart.data.labels = entries.map(([key]) => key); chart.data.datasets[0].data = entries.map(([, value]) => value !== null ? value.toFixed(1) : null); chart.update(); }
-
-        // --- UI Update Function ---
-        function updateUI(stats) {
-             console.log("Updating UI with stats:", stats);
-            elements.activeUsers.textContent = getText(stats.active_user_count, '0'); elements.totalUsers.textContent = getText(stats.total_unique_users, '0'); elements.activeUsersPeriod.textContent = `in last ${elements.timePeriodSelect.options[elements.timePeriodSelect.selectedIndex].text.replace('Last ','')}`; elements.rawDataInfo.textContent = `Most recent record for users active in last ${elements.timePeriodSelect.options[elements.timePeriodSelect.selectedIndex].text.replace('Last ','')}`;
-            const findTopItem = (distribution) => { let topItem = { name: 'N/A', count: -1 }; for (const [item, count] of Object.entries(distribution || {})) { if (item !== 'Unknown' && count > topItem.count) { topItem = { name: item, count }; } } if (topItem.name === 'N/A' && distribution && distribution['Unknown'] > 0) { return { name: 'Unknown', count: distribution['Unknown'] }; } if (topItem.name === 'N/A') { return { name: 'N/A', count: 0 }; } return topItem; };
-            const topOperator = findTopItem(stats.operator_distribution); const topBrand = findTopItem(stats.device_brand_distribution);
-            elements.topOperator.textContent = getText(topOperator.name); elements.topOperator.title = getText(topOperator.name); elements.topBrand.textContent = getText(topBrand.name); elements.topBrand.title = getText(topBrand.name);
-            elements.statsTimestamp.textContent = formatDateTime(stats.stats_time_utc);
-            updateDistributionChart(networkChart, stats.network_distribution); updateDistributionChart(operatorChart, stats.operator_distribution); updateBarChart(signalChart, stats.avg_signal_by_network);
-            // *** UPDATED Chart Update Call ***
-            updateBarChart(snrChart, stats.avg_snr_by_network);
-             // *** END UPDATE ***
-            updateDistributionChart(operatorConnectivityChart, stats.operator_connectivity); updateDistributionChart(networkConnectivityChart, stats.network_connectivity); updateDistributionChart(deviceBrandChart, stats.device_brand_distribution);
-            elements.latestDataBody.innerHTML = ''; if (stats.latest_data?.length > 0) { stats.latest_data.forEach(data => { const row = elements.latestDataBody.insertRow(); row.className = 'hover:bg-gray-50'; addCell(row, data.user_id, 'font-mono truncate'); addCell(row, data.user_ip, 'font-mono'); addCell(row, data.user_mac, 'font-mono'); addCell(row, data.operator); addCell(row, data.network_type); addCell(row, data.signal_power);
-            // *** UPDATED Data Key Access ***
-            addCell(row, data.snr); // Use data.snr instead of data.sinr
-             // *** END UPDATE ***
-            addCell(row, data.frequency_band, 'truncate'); addCell(row, data.cell_id, 'font-mono'); addCell(row, data.device_brand); addCell(row, formatDateTime(data.client_timestamp)); addCell(row, formatDateTime(data.upload_time)); }); } else { elements.latestDataBody.innerHTML = `<tr><td colspan="12" class="px-6 py-10 text-center text-sm text-gray-500">No active users found in the selected time period.</td></tr>`; }
-            elements.devicesTableBody.innerHTML = ''; if (stats.all_devices?.length > 0) { stats.all_devices.forEach(device => { const row = elements.devicesTableBody.insertRow(); row.className = 'hover:bg-gray-50'; addCell(row, device.mac, 'font-mono text-gray-700'); addCell(row, device.ip, 'font-mono text-gray-700'); addCell(row, formatDateTime(device.last_seen), 'text-gray-700'); const isActive = isDeviceActive(device.last_seen); const statusBadge = document.createElement('span'); statusBadge.className = `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isActive ? 'bg-green-100 text-green-800 pulse' : 'bg-gray-100 text-gray-800'}`; statusBadge.textContent = isActive ? 'Active' : 'Inactive'; addCell(row, statusBadge); }); } else { elements.devicesTableBody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500">No devices identified yet.</td></tr>`; }
-            elements.networkStatsBody.innerHTML = ''; const networkStatsData = Object.entries(stats.network_distribution || {}).map(([network, count]) => ({ network: network, users: count, signal: stats.avg_signal_by_network?.[network],
-            // *** UPDATED Data Key Access ***
-            snr: stats.avg_snr_by_network?.[network] // Use avg_snr_by_network
-             // *** END UPDATE ***
-            })).sort((a, b) => b.users - a.users); if (networkStatsData.length > 0) { networkStatsData.forEach(data => { const row = elements.networkStatsBody.insertRow(); row.className = 'hover:bg-gray-50'; addCell(row, data.network, 'font-medium text-gray-900'); addCell(row, data.users); addCell(row, data.signal !== null && data.signal !== undefined ? `${data.signal.toFixed(1)} dBm` : 'N/A');
-            // *** UPDATED Data Key Access ***
-            addCell(row, data.snr !== null && data.snr !== undefined ? `${data.snr.toFixed(1)} dB` : 'N/A'); // Use data.snr
-             // *** END UPDATE ***
-             }); } else { elements.networkStatsBody.innerHTML = `<tr><td colspan="4" class="px-6 py-10 text-center text-sm text-gray-500">No network data available for the selected period.</td></tr>`; }
-            elements.operatorStatsBody.innerHTML = ''; const operatorStatsData = Object.entries(stats.operator_distribution || {}).map(([operator, count]) => ({ operator: operator, users: count, connectivity: stats.operator_connectivity?.[operator] || 0 })).sort((a, b) => b.users - a.users); if (operatorStatsData.length > 0) { operatorStatsData.forEach(data => { const row = elements.operatorStatsBody.insertRow(); row.className = 'hover:bg-gray-50'; addCell(row, data.operator, 'font-medium text-gray-900'); addCell(row, data.users); const connectivityCell = row.insertCell(); connectivityCell.className = 'px-4 py-2 text-sm text-gray-700'; const progressContainer = document.createElement('div'); progressContainer.className = 'flex items-center w-full'; const progressBar = document.createElement('div'); progressBar.className = 'flex-1 bg-gray-200 rounded-full h-2 dark:bg-gray-700 mr-2'; const progress = document.createElement('div'); progress.className = 'bg-blue-600 h-2 rounded-full'; progress.style.width = `${data.connectivity}%`; progressBar.appendChild(progress); const percentText = document.createElement('span'); percentText.className = 'min-w-[40px] text-right text-xs'; percentText.textContent = `${data.connectivity.toFixed(1)}%`; progressContainer.appendChild(progressBar); progressContainer.appendChild(percentText); connectivityCell.appendChild(progressContainer); }); } else { elements.operatorStatsBody.innerHTML = `<tr><td colspan="3" class="px-6 py-10 text-center text-sm text-gray-500">No operator data available for the selected period.</td></tr>`; }
+        // Update connection info section
+        if (latestConnection) {
+          elements.userOperatorDisplay.textContent = getText(
+            latestConnection.operator
+          );
+          elements.userNetworkDisplay.textContent = getText(
+            latestConnection.network_type
+          );
+          elements.userSignalDisplay.textContent =
+            latestConnection.signal_power !== null &&
+            latestConnection.signal_power !== undefined
+              ? `${latestConnection.signal_power} dBm`
+              : "N/A";
+          elements.userSnrDisplay.textContent =
+            latestConnection.snr !== null && latestConnection.snr !== undefined
+              ? `${latestConnection.snr} dB`
+              : "N/A";
+          elements.userBandDisplay.textContent = getText(
+            latestConnection.frequency_band
+          );
+          elements.userCellDisplay.textContent = getText(
+            latestConnection.cell_id
+          );
         }
 
-        // --- Fetch Data Function (remains the same) ---
-        async function fetchStats() { const selectedPeriod = elements.timePeriodSelect.value; console.log(`Fetching stats for period: ${selectedPeriod}`); elements.loading.classList.remove('hidden'); elements.errorMessage.classList.add('hidden'); elements.refreshButton.disabled = true; elements.refreshButton.classList.add('loading', 'opacity-50', 'cursor-not-allowed'); try { const response = await fetch(`/api/stats?period=${selectedPeriod}&_=${new Date().getTime()}`); if (!response.ok) { let errorMsg = `HTTP error! Status: ${response.status}`; try { const errorData = await response.json(); errorMsg += ` - ${errorData.message || 'Server error'}`; } catch (e) { try { errorMsg += ` - ${await response.text()}`; } catch (textErr) { errorMsg += ' - Server error (could not parse response)'; } } throw new Error(errorMsg); } const stats = await response.json(); updateUI(stats); } catch (error) { console.error('Error fetching or processing stats:', error); elements.errorText.textContent = `${error.message}`; elements.errorMessage.classList.remove('hidden'); } finally { elements.loading.classList.add('hidden'); elements.refreshButton.disabled = false; elements.refreshButton.classList.remove('loading', 'opacity-50', 'cursor-not-allowed'); } }
+        // Update connection history table
+        elements.userHistoryBody.innerHTML = "";
+        if (connectionHistory && connectionHistory.length > 0) {
+          connectionHistory.forEach((record) => {
+            const row = elements.userHistoryBody.insertRow();
+            row.className = "hover:bg-gray-50";
 
-        // --- Tab Switching Logic (remains the same) ---
-        function switchTab(targetTabId) { elements.tabs.forEach(tab => { const tabId = tab.getAttribute('data-tab'); const contentId = `${tabId}-content`; const contentElement = document.getElementById(contentId); if (tabId === targetTabId) { tab.classList.add('active', 'text-blue-600', 'border-blue-600'); tab.classList.remove('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300'); if(contentElement) contentElement.classList.remove('hidden'); } else { tab.classList.remove('active', 'text-blue-600', 'border-blue-600'); tab.classList.add('border-transparent', 'hover:text-gray-600', 'hover:border-gray-300'); if(contentElement) contentElement.classList.add('hidden'); } }); localStorage.setItem('activeNetworkAnalyzerTab', targetTabId); }
+            addCell(row, formatDateTime(record.client_timestamp));
+            addCell(row, record.operator);
+            addCell(row, record.network_type);
+            addCell(
+              row,
+              record.signal_power !== null
+                ? `${record.signal_power} dBm`
+                : "N/A"
+            );
+            addCell(row, record.snr !== null ? `${record.snr} dB` : "N/A");
+            addCell(row, record.cell_id, "font-mono");
+          });
+        } else {
+          const row = elements.userHistoryBody.insertRow();
+          const cell = row.insertCell();
+          cell.colSpan = 6;
+          cell.className = "px-4 py-6 text-center text-sm text-gray-500";
+          cell.textContent = "No connection history available for this user.";
+        }
+      }
 
-        // --- Event Listeners (remains the same) ---
-        elements.tabs.forEach(tab => { tab.addEventListener('click', (e) => { const targetTab = e.currentTarget.getAttribute('data-tab'); switchTab(targetTab); }); });
-        elements.refreshButton.addEventListener('click', fetchStats);
-        elements.timePeriodSelect.addEventListener('change', () => { fetchStats(); startAutoRefresh(); });
+      // --- Fetch Data Function ---
+      async function fetchStats() {
+        const selectedPeriod = elements.timePeriodSelect.value;
+        console.log(`Fetching stats for period: ${selectedPeriod}`);
+        elements.loading.classList.remove("hidden");
+        elements.errorMessage.classList.add("hidden");
+        elements.refreshButton.disabled = true;
+        elements.refreshButton.classList.add(
+          "loading",
+          "opacity-50",
+          "cursor-not-allowed"
+        );
+        try {
+          const response = await fetch(
+            `/api/stats?period=${selectedPeriod}&_=${new Date().getTime()}`
+          );
+          if (!response.ok) {
+            let errorMsg = `HTTP error! Status: ${response.status}`;
+            try {
+              const errorData = await response.json();
+              errorMsg += ` - ${errorData.message || "Server error"}`;
+            } catch (e) {
+              try {
+                errorMsg += ` - ${await response.text()}`;
+              } catch (textErr) {
+                errorMsg += " - Server error (could not parse response)";
+              }
+            }
+            throw new Error(errorMsg);
+          }
+          const stats = await response.json();
+          updateUI(stats);
+        } catch (error) {
+          console.error("Error fetching or processing stats:", error);
+          elements.errorText.textContent = `${error.message}`;
+          elements.errorMessage.classList.remove("hidden");
+        } finally {
+          elements.loading.classList.add("hidden");
+          elements.refreshButton.disabled = false;
+          elements.refreshButton.classList.remove(
+            "loading",
+            "opacity-50",
+            "cursor-not-allowed"
+          );
+        }
+      }
 
-        // --- Auto Refresh (remains the same) ---
-         function startAutoRefresh() { if (refreshIntervalId) { clearInterval(refreshIntervalId); console.log("Cleared previous refresh interval."); } const selectedPeriod = elements.timePeriodSelect.value; if (['1m', '5m', '15m', '30m', '1h'].includes(selectedPeriod)) { const intervalSeconds = REFRESH_INTERVAL_MS / 1000; console.log(`Starting auto-refresh every ${intervalSeconds} seconds for period ${selectedPeriod}.`); refreshIntervalId = setInterval(fetchStats, REFRESH_INTERVAL_MS); } else { console.log(`Auto-refresh disabled for period ${selectedPeriod}.`); refreshIntervalId = null; } }
+      // --- Tab Switching Logic ---
+      function switchTab(targetTabId) {
+        elements.tabs.forEach((tab) => {
+          const tabId = tab.getAttribute("data-tab");
+          const contentId = `${tabId}-content`;
+          const contentElement = document.getElementById(contentId);
+          if (tabId === targetTabId) {
+            tab.classList.add("active", "text-blue-600", "border-blue-600");
+            tab.classList.remove(
+              "border-transparent",
+              "hover:text-gray-600",
+              "hover:border-gray-300"
+            );
+            if (contentElement) contentElement.classList.remove("hidden");
+          } else {
+            tab.classList.remove("active", "text-blue-600", "border-blue-600");
+            tab.classList.add(
+              "border-transparent",
+              "hover:text-gray-600",
+              "hover:border-gray-300"
+            );
+            if (contentElement) contentElement.classList.add("hidden");
+          }
+        });
+        localStorage.setItem("activeNetworkAnalyzerTab", targetTabId);
+      }
 
-        // --- Initial Load (remains the same) ---
-        document.addEventListener('DOMContentLoaded', () => { initializeCharts(); const lastTab = localStorage.getItem('activeNetworkAnalyzerTab') || 'overview'; switchTab(lastTab); fetchStats(); startAutoRefresh(); });
+      // --- Event Listeners ---
+      elements.tabs.forEach((tab) => {
+        tab.addEventListener("click", (e) => {
+          const targetTab = e.currentTarget.getAttribute("data-tab");
+          switchTab(targetTab);
+        });
+      });
+      elements.refreshButton.addEventListener("click", fetchStats);
+      elements.timePeriodSelect.addEventListener("change", () => {
+        fetchStats();
+        startAutoRefresh();
+      });
+      elements.searchUserBtn.addEventListener("click", () => {
+        const email = elements.userEmail.value.trim();
+        if (email) {
+          fetchUserStats(email);
+        } else {
+          elements.userErrorText.textContent =
+            "Please enter a valid email address";
+          elements.userError.classList.remove("hidden");
+        }
+      });
+      elements.userEmail.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          elements.searchUserBtn.click();
+        }
+      });
 
+      // --- Auto Refresh ---
+      function startAutoRefresh() {
+        if (refreshIntervalId) {
+          clearInterval(refreshIntervalId);
+          console.log("Cleared previous refresh interval.");
+        }
+        const selectedPeriod = elements.timePeriodSelect.value;
+        if (["1m", "5m", "15m", "30m", "1h"].includes(selectedPeriod)) {
+          const intervalSeconds = REFRESH_INTERVAL_MS / 1000;
+          console.log(
+            `Starting auto-refresh every ${intervalSeconds} seconds for period ${selectedPeriod}.`
+          );
+          refreshIntervalId = setInterval(() => {
+            fetchStats();
+            // Also refresh user stats if viewing a user
+            if (
+              currentUserEmail &&
+              elements.userStatsContainer.classList.contains("hidden") === false
+            ) {
+              fetchUserStats(currentUserEmail);
+            }
+          }, REFRESH_INTERVAL_MS);
+        } else {
+          console.log(`Auto-refresh disabled for period ${selectedPeriod}.`);
+          refreshIntervalId = null;
+        }
+      }
+
+      // --- Initial Load ---
+      document.addEventListener("DOMContentLoaded", () => {
+        initializeCharts();
+        const lastTab =
+          localStorage.getItem("activeNetworkAnalyzerTab") || "overview";
+        switchTab(lastTab);
+        fetchStats();
+        startAutoRefresh();
+      });
     </script>
-</body>
+  </body>
 </html>

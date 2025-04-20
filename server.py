@@ -49,10 +49,10 @@ class CellData(db.Model):
     __tablename__ = 'cell_data'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(80), nullable=False, index=True)
+    email = db.Column(db.String(120), nullable=True, index=True)  # <-- Add this line
     operator = db.Column(db.String(120), nullable=True)
     signal_power = db.Column(db.String(50), nullable=True)
-    # *** RENAMED sinr to snr ***
-    snr = db.Column(db.String(50), nullable=True)  # e.g. "10 dB" or "15 dB (SS-SINR)"
+    snr = db.Column(db.String(50), nullable=True)
     network_type = db.Column(db.String(20), nullable=True, index=True)
     frequency_band = db.Column(db.String(100), nullable=True)
     cell_id = db.Column(db.String(50), nullable=True)
@@ -63,17 +63,18 @@ class CellData(db.Model):
     upload_time = db.Column(db.DateTime(timezone=True), server_default=func.now(), index=True)
 
     def __repr__(self):
-        return f'<CellData ID:{self.id} User:{self.user_id} Brand:{self.device_brand} SNR:{self.snr} Upload:{self.upload_time}>'
+        return f'<CellData ID:{self.id} Email:{self.email} User:{self.user_id} Brand:{self.device_brand}>'
 
     def to_dict(self):
         return {
-            'id': self.id, 'user_id': self.user_id, 'operator': self.operator,
-            'signal_power': self.signal_power, 'snr': self.snr, 'network_type': self.network_type,
-            'frequency_band': self.frequency_band, 'cell_id': self.cell_id,
-            'client_timestamp': self.client_timestamp, 'user_ip': self.user_ip,
-            'user_mac': self.user_mac, 'device_brand': self.device_brand,
+            'id': self.id, 'user_id': self.user_id, 'email': self.email,
+            'operator': self.operator, 'signal_power': self.signal_power, 'snr': self.snr,
+            'network_type': self.network_type, 'frequency_band': self.frequency_band,
+            'cell_id': self.cell_id, 'client_timestamp': self.client_timestamp,
+            'user_ip': self.user_ip, 'user_mac': self.user_mac, 'device_brand': self.device_brand,
             'upload_time': self.upload_time.isoformat() if self.upload_time else None
         }
+
 
 # --- New User model for registration ---
 class User(db.Model):
@@ -185,53 +186,51 @@ def calculate_stats_for_period(start_dt, end_dt):
     period_stats['network_connectivity'] = network_connectivity
     return period_stats
 
-# --- Existing Endpoint for Cell Data Upload ---
 @app.route('/upload', methods=['POST'])
 def receive_cell_data():
     data = request.get_json()
     if not data:
         return jsonify({'status': 'error', 'message': 'No JSON data received'}), 400
     print(f"📡 Received Raw Data: {data}")
-    required_fields = ['userId', 'clientTimestamp']
+
+    required_fields = ['email', 'clientTimestamp']
     missing = [field for field in required_fields if field not in data or not data.get(field)]
     if missing:
         error_msg = f'Missing or empty required fields: {", ".join(missing)}'
         print(f"Error: {error_msg}")
-        print(f"Problematic Data: {data}")
         return jsonify({'status': 'error', 'message': error_msg}), 400
 
-    user_id = data.get('userId')
-    client_timestamp = data.get('clientTimestamp')
-    user_ip = data.get('ipAddress', None)
-    user_mac = data.get('macAddress', None)
-    operator = data.get('operator', None)
-    signal_power = data.get('signalPower', None)
-    snr_value = data.get('snr', None)  # Updated key to 'snr'
-    network_type = data.get('networkType', None)
-    frequency_band = data.get('frequencyBand', None)
-    cell_id = data.get('cellId', None)
-    device_brand = data.get('deviceBrand', None)
+    email = data.get('email')
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({'status': 'error', 'message': f"No user found with email: {email}"}), 404
+
+    user_id = str(user.id)
+
     try:
         new_data = CellData(
-            user_id=user_id, operator=operator, signal_power=signal_power,
-            snr=snr_value,
-            network_type=network_type, frequency_band=frequency_band, cell_id=cell_id,
-            client_timestamp=client_timestamp, user_ip=user_ip, user_mac=user_mac,
-            device_brand=device_brand
+            user_id=user_id,
+            email=email,  # <-- Save the email in the DB
+            operator=data.get('operator'),
+            signal_power=data.get('signalPower'),
+            snr=data.get('snr'),
+            network_type=data.get('networkType'),
+            frequency_band=data.get('frequencyBand'),
+            cell_id=data.get('cellId'),
+            client_timestamp=data.get('clientTimestamp'),
+            user_ip=data.get('ipAddress'),
+            user_mac=data.get('macAddress'),
+            device_brand=data.get('deviceBrand')
         )
         db.session.add(new_data)
         db.session.commit()
-        print(f"✅ Data stored successfully: ID={new_data.id}, User={new_data.user_id}, Brand={new_data.device_brand}, IP={new_data.user_ip}, MAC={new_data.user_mac}")
-        return jsonify({'status': 'success', 'message': 'Data received and stored', 'db_id': new_data.id,
-                        'received_ip': user_ip, 'received_mac': user_mac}), 201
+        print(f"✅ Data stored successfully: ID={new_data.id}, Email={email}, Brand={new_data.device_brand}")
+        return jsonify({'status': 'success', 'message': 'Data received and stored'}), 201
+
     except Exception as e:
         db.session.rollback()
-        print(f"❌ Error storing data for user {user_id}: {e}")
+        print(f"❌ Error storing data for {email}: {e}")
         traceback.print_exc()
-        if "column cell_data.device_brand does not exist" in str(e).lower():
-            print("\n HINT: The 'device_brand' column seems missing. Update your DB schema!\n")
-        if "column cell_data.snr does not exist" in str(e).lower():
-            print("\n HINT: The 'snr' column seems missing. Update your DB schema (Rename from sinr or add new)!\n")
         return jsonify({'status': 'error', 'message': 'Internal server error during data storage.'}), 500
 
 # --- New Registration Endpoint ---
@@ -352,48 +351,24 @@ def get_web_stats():
             err_msg_for_client = "An internal error occurred while generating statistics."
         return jsonify({'status': 'error', 'message': err_msg_for_client}), 500
 
-@app.route('/api/app-stats')
-def get_app_stats():
-    """Provides statistics for the Android app based on a specific date range."""
-    start_date_str = request.args.get('start_date')
-    end_date_str = request.args.get('end_date')
-    if not start_date_str or not end_date_str:
-        return jsonify({'status': 'error',
-                        'message': "Missing 'start_date' or 'end_date' query parameters (YYYY-MM-DD format required)."}), 400
-    try:
-        start_dt = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
-        end_dt = (datetime.strptime(end_date_str, '%Y-%m-%d') + timedelta(days=1)).replace(tzinfo=timezone.utc)
-        period_stats = calculate_stats_for_period(start_dt, end_dt)
-        period_stats['requested_start_date'] = start_date_str
-        period_stats['requested_end_date'] = end_date_str
-        period_stats['stats_time_utc'] = datetime.now(timezone.utc).isoformat()
-        period_stats.pop('latest_data', None)
-        period_stats.pop('device_brand_distribution', None)
-        return jsonify(period_stats), 200
-    except ValueError:
-        return jsonify({'status': 'error', 'message': "Invalid date format. Use YYYY-MM-DD."}), 400
-    except Exception as e:
-        print(f"❌ Error generating stats in /api/app-stats endpoint: {e}")
-        traceback.print_exc()
-        err_str = str(e).lower()
-        if "no such function: regexp_replace" in err_str or "regular expression support is not available" in err_str:
-            err_msg_for_client = "Error: Stats calculation requires features not available in the current database setup (e.g., SQLite)."
-        else:
-            err_msg_for_client = "An internal error occurred while generating statistics."
-        return jsonify({'status': 'error', 'message': err_msg_for_client}), 500
-    
 @app.route('/api/user-stats', methods=['GET'])
 def get_user_stats():
-    """Provides optimized statistics for a specific user based on a date range."""
-    user_id = request.args.get('userId')
+    """Provides optimized statistics for a specific user based on a date range (now uses email instead of user ID)."""
+    email = request.args.get('email') 
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
-    limit = request.args.get('limit', 1000, type=int)  # Default to 1000 points max
+    limit = request.args.get('limit', 1000, type=int)
 
-    if not user_id:
-        return jsonify({'status': 'error', 'message': "Missing 'userId' query parameter."}), 400
+    if not email:
+        return jsonify({'status': 'error', 'message': "Missing 'email' query parameter."}), 400
 
-    # --- Adjust timestamps back by 3 hours since app sends local time (UTC+3) ---
+    # 🔍 Find the user ID from the email
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({'status': 'error', 'message': f"No user found with email: {email}"}), 404
+
+    user_id = str(user.id)
+
     offset = timedelta(hours=3)
 
     if not start_date_str or not end_date_str:
@@ -442,34 +417,29 @@ def get_user_stats():
             network_type = row.network_type or "UNKNOWN"
             network_stats[network_type] = row.count
 
-        # Ensure percentages are positive and sum to exactly 100%
         total_count = sum(network_stats.values())
         network_distribution = {}
         if total_count > 0:
-            # Calculate initial percentages
             raw_distribution = {
-                k: max(0, v / total_count * 100) 
+                k: max(0, v / total_count * 100)
                 for k, v in network_stats.items()
             }
-            
-            # Normalize to ensure sum is exactly 100%
+
             total_percentage = sum(raw_distribution.values())
             if total_percentage > 0:
                 network_distribution = {
                     k: round((v / total_percentage) * 100, 1)
                     for k, v in raw_distribution.items()
                 }
-            
-            # Filter out very small values (less than 0.5%) to prevent pie chart rendering issues
+
             network_distribution = {
                 k: v for k, v in network_distribution.items() if v >= 0.5
             }
-            
-            # Re-normalize after filtering if needed
+
             if network_distribution and sum(network_distribution.values()) != 100:
                 total = sum(network_distribution.values())
                 network_distribution = {
-                    k: round((v / total) * 100, 1) 
+                    k: round((v / total) * 100, 1)
                     for k, v in network_distribution.items()
                 }
 
@@ -564,7 +534,7 @@ def get_user_stats():
                 FROM cell_data
                 WHERE user_id = :user_id 
                   AND upload_time BETWEEN :start_dt AND :end_dt
-                  AND signal_power ~ '[-]?[0-9]+\.?[0-9]*'
+                  AND signal_power ~ '[-]?[0-9]+\\.?[0-9]*'
             """), {'user_id': user_id, 'start_dt': start_dt, 'end_dt': end_dt}).fetchone()
 
             avg_snr_query = db.session.execute(text("""
@@ -572,7 +542,7 @@ def get_user_stats():
                 FROM cell_data
                 WHERE user_id = :user_id 
                   AND upload_time BETWEEN :start_dt AND :end_dt
-                  AND snr ~ '[-]?[0-9]+\.?[0-9]*'
+                  AND snr ~ '[-]?[0-9]+\\.?[0-9]*'
             """), {'user_id': user_id, 'start_dt': start_dt, 'end_dt': end_dt}).fetchone()
 
             summary['avgSignalStrength'] = float(avg_signal_query.avg_signal) if avg_signal_query.avg_signal else None
@@ -595,10 +565,112 @@ def get_user_stats():
         }), 200
 
     except Exception as e:
-        print(f"\u274c Error generating user stats: {e}")
+        print(f"❌ Error generating user stats: {e}")
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f"An error occurred while fetching statistics: {str(e)}"}), 500
+
+@app.route('/api/server-user-stats', methods=['GET'])
+def get_user_stats_for_dashboard():
+    """Provides user info and connection history for the User Stats dashboard tab."""
+    email = request.args.get('email')
+    period = request.args.get('period', '1h')
     
+    if not email:
+        return jsonify({'status': 'error', 'message': "Missing 'email' query parameter."}), 400
+    
+    # Find the user by email
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({'status': 'error', 'message': f"No user found with email: {email}"}), 404
+    
+    user_id = str(user.id)
+    
+    # Map period to time delta
+    period_mapping = {
+        '1m': timedelta(minutes=1), '5m': timedelta(minutes=5),
+        '15m': timedelta(minutes=15), '30m': timedelta(minutes=30),
+        '1h': timedelta(hours=1), '6h': timedelta(hours=6),
+        '12h': timedelta(hours=12), '24h': timedelta(hours=24),
+        '7d': timedelta(days=7), '30d': timedelta(days=30)
+    }
+    time_delta = period_mapping.get(period, timedelta(hours=1))
+    end_dt = datetime.now(timezone.utc)
+    start_dt = end_dt - time_delta
+    
+    try:
+        # Get the user's most recent connection data
+        latest_data = CellData.query.filter(
+            CellData.user_id == user_id
+        ).order_by(desc(CellData.upload_time)).first()
+        
+        # Get connection history within the time period
+        connection_history = CellData.query.filter(
+            CellData.user_id == user_id,
+            CellData.upload_time >= start_dt,
+            CellData.upload_time <= end_dt
+        ).order_by(desc(CellData.upload_time)).limit(100).all()
+        
+        # Format user info for response
+        user_info = {
+            'email': email,
+            'user_id': user_id,
+            'name': user.name,
+            'mac': latest_data.user_mac if latest_data else None,
+            'ip': latest_data.user_ip if latest_data else None,
+            'device': latest_data.device_brand if latest_data else None,
+            'last_seen': latest_data.upload_time.isoformat() if latest_data and latest_data.upload_time else None
+        }
+        
+        # Format connection history for response
+        history_list = []
+        for record in connection_history:
+            # Convert signal power and SNR to numeric values if possible
+            signal_power = None
+            snr = None
+            
+            if record.signal_power:
+                try:
+                    import re
+                    match = re.search(r'-?\d+\.?\d*', record.signal_power)
+                    if match:
+                        signal_power = float(match.group(0))
+                except (ValueError, TypeError):
+                    pass
+            
+            if record.snr:
+                try:
+                    import re
+                    match = re.search(r'-?\d+\.?\d*', record.snr)
+                    if match:
+                        snr = float(match.group(0))
+                except (ValueError, TypeError):
+                    pass
+            
+            history_list.append({
+                'client_timestamp': record.client_timestamp,
+                'operator': record.operator,
+                'network_type': record.network_type,
+                'signal_power': signal_power,
+                'snr': snr,
+                'frequency_band': record.frequency_band,
+                'cell_id': record.cell_id,
+                'upload_time': record.upload_time.isoformat() if record.upload_time else None
+            })
+        
+        # Get the latest connection details
+        latest_connection = history_list[0] if history_list else None
+        
+        return jsonify({
+            'userInfo': user_info,
+            'connectionHistory': history_list,
+            'latestConnection': latest_connection
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Error generating user stats for dashboard: {e}")
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': f"An error occurred while fetching user statistics: {str(e)}"}), 500
+
 # --- Initialization / Helper ---
 def create_tables():
     """Creates database tables if they don't exist. Use with caution."""
