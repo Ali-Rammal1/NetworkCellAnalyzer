@@ -83,20 +83,13 @@ The system collects various network metrics:
    cd network-cell-analyzer
    ```
 
-2. Create and activate a virtual environment:
-
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. Install dependencies:
+2. Install dependencies:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. Set up environment variables:
+3. Set up environment variables:
    Create a `.env` file in the root directory:
 
    ```
@@ -106,7 +99,7 @@ The system collects various network metrics:
    SECRET_KEY= Can be given upon request (its the connection to the database)
    ```
 
-5. Initialize the database:
+4. Start the server:
    ```bash
    python server.py
    ```
