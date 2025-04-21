@@ -5,6 +5,7 @@ A comprehensive network analysis tool that collects, analyzes, and visualizes ce
 ## 🌟 Features
 
 ### Web Dashboard
+
 - Real-time network statistics and visualizations
 - User-specific analytics and history
 - Network type distribution analysis (2G/3G/4G/5G/WiFi)
@@ -14,6 +15,7 @@ A comprehensive network analysis tool that collects, analyzes, and visualizes ce
 - User management system
 
 ### Android App
+
 - Real-time network data collection
 - Automatic data upload to server
 - Support for both authenticated and guest users
@@ -25,6 +27,7 @@ A comprehensive network analysis tool that collects, analyzes, and visualizes ce
 ## 🛠️ Technical Stack
 
 ### Backend
+
 - **Framework**: Flask (Python)
 - **Database**: PostgreSQL
 - **ORM**: SQLAlchemy
@@ -33,12 +36,14 @@ A comprehensive network analysis tool that collects, analyzes, and visualizes ce
 - **Data Processing**: PostgreSQL-specific optimizations
 
 ### Frontend (Web Dashboard)
+
 - **Framework**: HTML5, CSS3, JavaScript
 - **Charts**: Chart.js
 - **UI Components**: Tailwind CSS
 - **Real-time Updates**: Fetch API
 
 ### Android App
+
 - **Language**: Kotlin
 - **Architecture**: MVVM
 - **Networking**: Retrofit
@@ -49,9 +54,10 @@ A comprehensive network analysis tool that collects, analyzes, and visualizes ce
 ## 📊 Data Collection
 
 The system collects various network metrics:
+
 - Signal Power (dBm)
 - Signal-to-Noise Ratio (SNR)
-- Network Type (2G/3G/4G/5G/WiFi)
+- Network Type (2G/3G/4G/5G)
 - Operator Information
 - Frequency Band
 - Cell ID
@@ -61,6 +67,7 @@ The system collects various network metrics:
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Python 3.8+
 - PostgreSQL 12+
 - Node.js 14+ (for development)
@@ -68,25 +75,30 @@ The system collects various network metrics:
 - JDK 11+
 
 ### Backend Setup
+
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/yourusername/network-cell-analyzer.git
    cd network-cell-analyzer
    ```
 
 2. Create and activate a virtual environment:
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 3. Install dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
 
 4. Set up environment variables:
    Create a `.env` file in the root directory:
+
    ```
    DATABASE_URL=postgresql://username:password@localhost:5432/network_analyzer
    SECRET_KEY=your-secret-key
@@ -98,6 +110,7 @@ The system collects various network metrics:
    ```
 
 ### Android App Setup
+
 1. Open the `android` directory in Android Studio
 2. Sync the project with Gradle files
 3. Update the `local.properties` file with your SDK path
@@ -106,13 +119,16 @@ The system collects various network metrics:
 ## 📡 API Endpoints
 
 ### Authentication
+
 - `POST /register` - User registration
 - `POST /login` - User authentication
 
 ### Data Collection
+
 - `POST /upload` - Upload network data from mobile devices
 
 ### Analytics
+
 - `GET /api/stats` - Get overall statistics
 - `GET /api/user-stats` - Get user-specific statistics
 - `GET /api/server-user-stats` - Get detailed user statistics
@@ -121,6 +137,7 @@ The system collects various network metrics:
 ## 📱 Mobile App Features
 
 ### Data Collection
+
 - Automatic background monitoring
 - Network type detection
 - Signal strength measurement
@@ -128,6 +145,7 @@ The system collects various network metrics:
 - Periodic data upload
 
 ### User Interface
+
 - Real-time network status
 - Historical data view
 - User authentication
@@ -145,6 +163,7 @@ The system collects various network metrics:
 ## 📈 Data Analysis
 
 The system provides various analytics:
+
 - Network type distribution
 - Signal strength trends
 - Operator statistics
@@ -152,8 +171,6 @@ The system provides various analytics:
 - User activity patterns
 - Historical data analysis
 
-
 ## 📝 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
