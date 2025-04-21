@@ -1137,6 +1137,7 @@
             const row = elements.latestDataBody.insertRow();
             row.className = "hover:bg-gray-50";
             addCell(row, data.user_id, "font-mono truncate");
+            addCell(row, data.email);
             addCell(row, data.user_ip, "font-mono");
             addCell(row, data.user_mac, "font-mono");
             addCell(row, data.operator);
