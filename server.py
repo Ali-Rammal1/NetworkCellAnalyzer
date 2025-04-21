@@ -148,12 +148,23 @@ def calculate_stats_for_period(start_dt, end_dt):
          for net, cnt in network_counts.items()]
 
         if is_postgresql:
-            signal_net_query = base_query.filter(CellData.signal_power.isnot(None)).with_entities(
-                CellData.network_type,
-                func.avg(cast(func.regexp_replace(CellData.signal_power, r'[^-0-9.]', '', 'g'), Float)).label('avg_signal')
-            ).group_by(CellData.network_type)
-            [avg_signal_by_network.update({(row.network_type or 'Unknown'): float(row.avg_signal)})
-             for row in signal_net_query if row.avg_signal is not None]
+            # Use raw SQL for better control over signal power calculation
+            signal_net_query = db.session.execute(text("""
+                SELECT network_type,
+                       AVG(CAST(regexp_replace(signal_power, '[^0-9\\-.]', '', 'g') AS FLOAT)) AS avg_signal
+                FROM cell_data
+                WHERE signal_power IS NOT NULL
+                  AND signal_power ~ '[-]?[0-9]+\\.?[0-9]*'
+                  AND upload_time >= :start AND upload_time < :end
+                GROUP BY network_type
+            """), {'start': start_dt, 'end': end_dt}).fetchall()
+
+            for row in signal_net_query:
+                if row.avg_signal is not None:
+                    avg_signal_by_network[row.network_type or 'Unknown'] = float(row.avg_signal)
+
+            # Debug output
+            print(f"Debug - avg_signal_by_network: {avg_signal_by_network}")
 
             # Query for avg SNR by network using raw SQL
             snr_net_query = db.session.execute(text("""
@@ -170,12 +181,20 @@ def calculate_stats_for_period(start_dt, end_dt):
                 if row.avg_snr is not None:
                     avg_snr_by_network[row.network_type or 'Unknown'] = float(row.avg_snr)
 
-            signal_dev_query = base_query.filter(CellData.signal_power.isnot(None)).with_entities(
-                CellData.user_id,
-                func.avg(cast(func.regexp_replace(CellData.signal_power, r'[^-0-9.]', '', 'g'), Float)).label('avg_signal')
-            ).group_by(CellData.user_id)
-            [avg_signal_per_device.update({row.user_id: float(row.avg_signal)})
-             for row in signal_dev_query if row.avg_signal is not None]
+            # Use the same raw SQL approach for avg signal per device
+            signal_dev_query = db.session.execute(text("""
+                SELECT user_id,
+                       AVG(CAST(regexp_replace(signal_power, '[^0-9\\-.]', '', 'g') AS FLOAT)) AS avg_signal
+                FROM cell_data
+                WHERE signal_power IS NOT NULL
+                  AND signal_power ~ '[-]?[0-9]+\\.?[0-9]*'
+                  AND upload_time >= :start AND upload_time < :end
+                GROUP BY user_id
+            """), {'start': start_dt, 'end': end_dt}).fetchall()
+
+            for row in signal_dev_query:
+                if row.avg_signal is not None:
+                    avg_signal_per_device[row.user_id] = float(row.avg_signal)
         else:
             print(f"WARN: Skipping Signal/SNR average calculation for period {start_dt}-{end_dt} - requires PostgreSQL.")
 
@@ -193,19 +212,24 @@ def receive_cell_data():
         return jsonify({'status': 'error', 'message': 'No JSON data received'}), 400
     print(f"📡 Received Raw Data: {data}")
 
-    required_fields = ['email', 'clientTimestamp']
-    missing = [field for field in required_fields if field not in data or not data.get(field)]
-    if missing:
-        error_msg = f'Missing or empty required fields: {", ".join(missing)}'
-        print(f"Error: {error_msg}")
-        return jsonify({'status': 'error', 'message': error_msg}), 400
+    client_timestamp = data.get('clientTimestamp')
+    if not client_timestamp:
+        return jsonify({'status': 'error', 'message': "Missing required field: clientTimestamp"}), 400
 
     email = data.get('email')
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({'status': 'error', 'message': f"No user found with email: {email}"}), 404
+    user_id = None
 
-    user_id = str(user.id)
+    # Check if this is a guest (no email or "null")
+    if email and email != "null":
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({'status': 'error', 'message': f"No user found with email: {email}"}), 404
+        user_id = str(user.id)
+    else:
+        # Guest fallback: use ANDROID_ID or MAC as user_id
+        user_id = data.get('userId') or data.get('macAddress') or "guest"
+        email = None  # Explicitly store null in DB
+
 
     try:
         new_data = CellData(
@@ -670,6 +694,33 @@ def get_user_stats_for_dashboard():
         print(f"❌ Error generating user stats for dashboard: {e}")
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f"An error occurred while fetching user statistics: {str(e)}"}), 500
+
+@app.route('/api/all-users', methods=['GET'])
+def get_all_users():
+    """Provides a list of all users in the system."""
+    try:
+        # Query for all users with distinct emails
+        users_query = db.session.query(
+            User.email, 
+            User.id.label('user_id'),
+            User.name
+        ).order_by(User.email).all()
+        
+        # Format the results
+        users_list = [
+            {
+                'email': user.email,
+                'user_id': str(user.user_id),
+                'name': user.name
+            } for user in users_query
+        ]
+        
+        return jsonify(users_list), 200
+        
+    except Exception as e:
+        print(f"❌ Error fetching all users: {e}")
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': f"An error occurred while fetching users: {str(e)}"}), 500
 
 # --- Initialization / Helper ---
 def create_tables():

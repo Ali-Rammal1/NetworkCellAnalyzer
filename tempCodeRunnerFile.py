@@ -1,2 +1,2 @@
 
-        db.session.commit()
+    user_id = str(user.id)

@@ -616,6 +616,19 @@
         </div>
 
         <div id="user-stats-content" class="tab-content hidden">
+          <!-- New Users List Section -->
+          <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">Users</h3>
+            <div class="border rounded-md max-h-60 overflow-y-auto">
+              <ul id="all-users-list" class="divide-y divide-gray-200">
+                <!-- User emails will be populated here -->
+                <li class="px-4 py-3 text-center text-sm text-gray-500">
+                  Loading users...
+                </li>
+              </ul>
+            </div>
+          </div>
+
           <div class="bg-white rounded-lg shadow p-6 mb-6">
             <h3 class="text-lg font-semibold text-gray-700 mb-4">
               User Statistics
@@ -1341,6 +1354,45 @@
         }
       }
 
+      // --- All Users List Functions ---
+      async function fetchAllUsers() {
+        const usersList = document.getElementById("all-users-list");
+        usersList.innerHTML =
+          '<li class="px-4 py-3 text-center text-sm text-gray-500">Loading users...</li>';
+
+        try {
+          const response = await fetch(
+            `/api/all-users?_=${new Date().getTime()}`
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+
+          const users = await response.json();
+
+          if (users && users.length > 0) {
+            usersList.innerHTML = "";
+            users.forEach((user) => {
+              const listItem = document.createElement("li");
+              listItem.className = "px-4 py-2 hover:bg-gray-100 cursor-pointer";
+              listItem.textContent = user.email || user.user_id;
+              listItem.addEventListener("click", () => {
+                elements.userEmail.value = user.email || "";
+                elements.searchUserBtn.click();
+              });
+              usersList.appendChild(listItem);
+            });
+          } else {
+            usersList.innerHTML =
+              '<li class="px-4 py-3 text-center text-sm text-gray-500">No users found</li>';
+          }
+        } catch (error) {
+          console.error("Error fetching users:", error);
+          usersList.innerHTML = `<li class="px-4 py-3 text-center text-sm text-red-500">Error loading users: ${error.message}</li>`;
+        }
+      }
+
       // --- Fetch Data Function ---
       async function fetchStats() {
         const selectedPeriod = elements.timePeriodSelect.value;
@@ -1402,6 +1454,11 @@
               "hover:border-gray-300"
             );
             if (contentElement) contentElement.classList.remove("hidden");
+
+            // Load all users when switching to the user-stats tab
+            if (tabId === "user-stats") {
+              fetchAllUsers();
+            }
           } else {
             tab.classList.remove("active", "text-blue-600", "border-blue-600");
             tab.classList.add(
@@ -1445,6 +1502,7 @@
       });
 
       // --- Auto Refresh ---
+      // Add to the startAutoRefresh function to refresh users list
       function startAutoRefresh() {
         if (refreshIntervalId) {
           clearInterval(refreshIntervalId);
@@ -1464,6 +1522,12 @@
               elements.userStatsContainer.classList.contains("hidden") === false
             ) {
               fetchUserStats(currentUserEmail);
+            }
+
+            // Refresh all users list if on the user-stats tab
+            const activeTab = localStorage.getItem("activeNetworkAnalyzerTab");
+            if (activeTab === "user-stats") {
+              fetchAllUsers();
             }
           }, REFRESH_INTERVAL_MS);
         } else {

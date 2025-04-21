@@ -161,6 +161,7 @@ class MainActivity : ComponentActivity() {
         sharedPreferences.edit().apply {
             putBoolean("isLoggedIn", false)
             putBoolean("isGuest", false)
+            remove("user_email")
             apply()
         }
 
@@ -170,6 +171,7 @@ class MainActivity : ComponentActivity() {
         startActivity(intent)
         finish()
     }
+
     override fun onResume() {
         super.onResume()
         telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
@@ -252,22 +254,23 @@ class MainActivity : ComponentActivity() {
         val iso8601DateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US)
         iso8601DateFormat.timeZone = TimeZone.getTimeZone("UTC")
         val clientTimestampISO = iso8601DateFormat.format(Date())
-        val userEmail = sharedPreferences.getString("user_email", "") ?: ""
+        val userEmail = sharedPreferences.getString("user_email", null)
+
         val dataToSend = mapOf(
             "userId" to getUserId(),
-            "email" to userEmail,
+            "email" to (userEmail ?: "null"),
             "clientTimestamp" to clientTimestampISO,
             "operator" to operatorText.text.toString(),
             "signalPower" to signalPowerText.text.toString(),
-            "snr" to sinrText.text.toString(), // ✅ Replaces sinr with snr
+            "snr" to sinrText.text.toString(),
             "networkType" to networkTypeText.text.toString(),
             "frequencyBand" to frequencyBandText.text.toString(),
             "cellId" to cellIdText.text.toString(),
             "ipAddress" to getLocalIpAddress(),
             "macAddress" to getMacAddress(),
             "deviceBrand" to Build.BRAND
-
         )
+
 
 
         sendDataToServer(dataToSend)
