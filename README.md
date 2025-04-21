@@ -79,7 +79,7 @@ The system collects various network metrics:
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/network-cell-analyzer.git
+   git clone https://github.com/Ali-Rammal1/NetworkCellAnalyzer
    cd network-cell-analyzer
    ```
 
@@ -100,8 +100,10 @@ The system collects various network metrics:
    Create a `.env` file in the root directory:
 
    ```
-   DATABASE_URL=postgresql://username:password@localhost:5432/network_analyzer
-   SECRET_KEY=your-secret-key
+
+   DATABASE_URL=postgresql://postgres.sqregetluaqenetlfioo:[SECRET_KEY]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres
+
+   SECRET_KEY= Can be given upon request (its the connection to the database)
    ```
 
 5. Initialize the database:
@@ -113,7 +115,7 @@ The system collects various network metrics:
 
 1. Open the `android` directory in Android Studio
 2. Sync the project with Gradle files
-3. Update the `local.properties` file with your SDK path
+3. Modify gradle.properties: Update the ip address to that of your server (laptop/pc)
 4. Build and run the app
 
 ## 📡 API Endpoints
