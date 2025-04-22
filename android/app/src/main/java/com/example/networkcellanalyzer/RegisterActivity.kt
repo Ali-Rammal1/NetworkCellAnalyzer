@@ -7,6 +7,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -27,6 +28,9 @@ class RegisterActivity : AppCompatActivity() {
     private lateinit var registerButton: MaterialButton
     private lateinit var backToLoginButton: MaterialButton
 
+    private lateinit var passwordLayout: TextInputLayout
+    private lateinit var confirmPasswordLayout: TextInputLayout
+
     companion object {
         private const val API_URL = "${BuildConfig.API_BASE_URL}/register"
     }
@@ -42,6 +46,9 @@ class RegisterActivity : AppCompatActivity() {
         confirmPasswordEditText = findViewById(R.id.confirmPasswordEditText)
         registerButton = findViewById(R.id.registerButton)
         backToLoginButton = findViewById(R.id.backToLoginButton)
+
+        passwordLayout = findViewById(R.id.passwordLayout)
+        confirmPasswordLayout = findViewById(R.id.confirmPasswordLayout)
 
         // Click listeners
         registerButton.setOnClickListener {
@@ -59,6 +66,9 @@ class RegisterActivity : AppCompatActivity() {
         val password = passwordEditText.text.toString().trim()
         val confirmPassword = confirmPasswordEditText.text.toString().trim()
 
+        passwordLayout.error = null
+        confirmPasswordLayout.error = null
+
         if (name.isEmpty()) {
             nameEditText.error = "Name is required"
             return
@@ -75,22 +85,22 @@ class RegisterActivity : AppCompatActivity() {
         }
 
         if (password.isEmpty()) {
-            passwordEditText.error = "Password is required"
+            passwordLayout.error = "Password is required"
             return
         }
 
-        if (password.length < 6) {
-            passwordEditText.error = "Password must be at least 6 characters"
+        if (!isValidPassword(password)) {
+            passwordLayout.error = "At least 6 characters, upper/lowercase, digit & special character"
             return
         }
 
         if (confirmPassword.isEmpty()) {
-            confirmPasswordEditText.error = "Confirm your password"
+            confirmPasswordLayout.error = "Confirm your password"
             return
         }
 
         if (password != confirmPassword) {
-            confirmPasswordEditText.error = "Passwords do not match"
+            confirmPasswordLayout.error = "Passwords do not match"
             return
         }
 
@@ -99,6 +109,11 @@ class RegisterActivity : AppCompatActivity() {
 
     private fun isValidEmail(email: String): Boolean {
         return android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    }
+
+    private fun isValidPassword(password: String): Boolean {
+        val passwordRegex = Regex("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@\$!%*#?&])[A-Za-z\\d@\$!%*#?&]{6,}")
+        return password.matches(passwordRegex) && !password.contains(" ")
     }
 
     private fun sendRegistrationToApi(name: String, email: String, password: String) {
@@ -131,7 +146,6 @@ class RegisterActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     if (responseCode in 200..299) {
-                        // Navigate to LoginActivity with a success flag
                         val intent = Intent(this@RegisterActivity, LoginActivity::class.java)
                         intent.putExtra("REGISTER_SUCCESS", true)
                         startActivity(intent)
