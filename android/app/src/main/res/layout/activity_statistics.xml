@@ -158,12 +158,15 @@
                             android:calendarViewShown="false"
                             android:datePickerMode="spinner" />
 
+
                         <TimePicker
                             android:id="@+id/startTimePicker"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:timePickerMode="spinner" />
+
+
                     </LinearLayout>
 
                     <TextView
@@ -186,6 +189,7 @@
                             android:calendarViewShown="false"
                             android:datePickerMode="spinner" />
 
+                        <!-- For the end time picker in your layout XML -->
                         <TimePicker
                             android:id="@+id/endTimePicker"
                             android:layout_width="0dp"

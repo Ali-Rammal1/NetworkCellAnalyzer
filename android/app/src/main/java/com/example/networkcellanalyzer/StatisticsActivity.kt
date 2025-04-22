@@ -32,10 +32,18 @@ class StatisticsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityStatisticsBinding
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+    // Adding a format that includes AM/PM indicator
+    private val displayDateFormat = SimpleDateFormat("yyyy-MM-dd hh:mm:ss a", Locale.getDefault())
+    // Alternative 24-hour format if preferred
+    private val display24HourFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+
     private var startDate: Date = Date()
     private var endDate: Date = Date()
     private lateinit var userId: String
     private lateinit var userEmail: String
+
+    // Set this to true to use 24-hour format, false for AM/PM format
+    private val use24HourFormat = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,6 +96,10 @@ class StatisticsActivity : AppCompatActivity() {
             binding.dateRangeLayout.visibility = View.VISIBLE
         }
 
+        // Set the time pickers to use 12-hour format with AM/PM
+        binding.startTimePicker.setIs24HourView(true)
+        binding.endTimePicker.setIs24HourView(true)
+
         binding.btnApplyDateRange.setOnClickListener {
             val startCalendar = Calendar.getInstance()
             startCalendar.set(
@@ -107,8 +119,17 @@ class StatisticsActivity : AppCompatActivity() {
                 binding.endTimePicker.minute
             )
 
-            startDate = startCalendar.time
-            endDate = endCalendar.time
+            val tempStartDate = startCalendar.time
+            val tempEndDate = endCalendar.time
+
+            // Check if end date is before start date
+            if (tempEndDate.before(tempStartDate)) {
+                Toast.makeText(this, "End time cannot be before start time", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            startDate = tempStartDate
+            endDate = tempEndDate
 
             binding.dateRangeLayout.visibility = View.GONE
 
@@ -129,7 +150,9 @@ class StatisticsActivity : AppCompatActivity() {
             xAxis.position = XAxis.XAxisPosition.BOTTOM
             xAxis.valueFormatter = object : ValueFormatter() {
                 override fun getFormattedValue(value: Float): String {
-                    return SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(value.toLong()))
+                    // Update chart time format based on preference
+                    val timeFormat = SimpleDateFormat(if (use24HourFormat) "HH:mm:ss" else "hh:mm:ss a", Locale.getDefault())
+                    return timeFormat.format(Date(value.toLong()))
                 }
             }
 
@@ -164,8 +187,8 @@ class StatisticsActivity : AppCompatActivity() {
     }
 
     private fun updateDateRangeDisplay() {
-        val formattedStart = dateFormat.format(startDate)
-        val formattedEnd = dateFormat.format(endDate)
+        val formattedStart = if (use24HourFormat) display24HourFormat.format(startDate) else displayDateFormat.format(startDate)
+        val formattedEnd = if (use24HourFormat) display24HourFormat.format(endDate) else displayDateFormat.format(endDate)
         binding.tvSelectedRange.text = "Stats from $formattedStart to $formattedEnd"
     }
 
@@ -173,6 +196,7 @@ class StatisticsActivity : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
         binding.noDataMessage.visibility = View.GONE
 
+        // We still use the original dateFormat for API calls to maintain server compatibility
         val formattedStart = dateFormat.format(startDate)
         val formattedEnd = dateFormat.format(endDate)
 
