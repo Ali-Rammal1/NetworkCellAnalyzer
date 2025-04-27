@@ -77,28 +77,20 @@ The system collects various network metrics:
 ### Backend Setup
 
 1. Clone the repository:
-
    ```bash
    git clone https://github.com/Ali-Rammal1/NetworkCellAnalyzer
    cd network-cell-analyzer
    ```
-
 2. Install dependencies:
-
    ```bash
    pip install -r requirements.txt
    ```
-
 3. Set up environment variables:
    Create a `.env` file in the root directory:
-
    ```
-
    DATABASE_URL=postgresql://postgres.sqregetluaqenetlfioo:[SECRET_KEY]@aws-0-eu-central-1.pooler.supabase.com:6543/postgres
-
    SECRET_KEY= Can be given upon request (its the connection to the database)
    ```
-
 4. Start the server:
    ```bash
    python server.py
@@ -108,8 +100,9 @@ The system collects various network metrics:
 
 1. Open the `android` directory in Android Studio
 2. Sync the project with Gradle files
-3. Modify gradle.properties: Update the ip address to that of your server (laptop/pc)
+3. Modify `gradle.properties`: Update the `API_BASE_URL` to the IP address of your server computer
 4. Build and run the app
+5. Make sure your phone and the server are connected to the same Wi-Fi network
 
 ## 📡 API Endpoints
 
@@ -149,10 +142,18 @@ The system collects various network metrics:
 
 ## 🔒 Security Features
 
-- Password hashing
+- Token-based authentication with 64-character tokens valid for 30 days
+- Password requirements:
+  - Minimum 6 characters
+  - At least one uppercase letter
+  - At least one lowercase letter
+  - At least one digit
+  - At least one special character
+  - No spaces
+- Guest mode for data uploads without authentication
+- Comprehensive error handling
 - Environment variable configuration
 - Input validation
-- Error handling
 - Secure API endpoints
 
 ## 📈 Data Analysis
