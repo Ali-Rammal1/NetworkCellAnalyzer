@@ -61,7 +61,7 @@ dependencies {
     implementation("com.google.android.material:material:1.9.0")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 
-
+    implementation("com.jakewharton.threetenabp:threetenabp:1.4.4")
 
     // The rest of your existing dependencies
     testImplementation(libs.junit)

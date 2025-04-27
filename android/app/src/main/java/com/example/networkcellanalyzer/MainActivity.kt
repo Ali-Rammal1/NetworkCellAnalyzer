@@ -293,12 +293,18 @@ class MainActivity : ComponentActivity() {
             try {
                 val json = JSONObject(data)
                 val url = URL("${BuildConfig.API_BASE_URL}/upload")
-
-                //val url = URL("https://key-pigeon-creative.ngrok-free.app/upload")
-
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json; utf-8")
+
+                // 🌟 ADD AUTH TOKEN
+                val authPrefs = getSharedPreferences("NetworkCellAuthPrefs", Context.MODE_PRIVATE)
+                val token = authPrefs.getString("auth_token", null)
+
+                if (token != null) {
+                    conn.setRequestProperty("Authorization", "Bearer $token")
+                }
+
                 conn.doOutput = true
 
                 val output = conn.outputStream
@@ -314,6 +320,7 @@ class MainActivity : ComponentActivity() {
             }
         }.start()
     }
+
 
 
     private fun processCellInfo(cellInfoList: List<CellInfo>) {

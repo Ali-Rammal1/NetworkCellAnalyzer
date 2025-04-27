@@ -1,6 +1,8 @@
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
-from flask import Flask, request, jsonify, render_template
+from functools import wraps
+from flask import Flask, request, jsonify, render_template, g
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import text
 from sqlalchemy import desc, func, distinct, cast, Float
@@ -8,7 +10,6 @@ from dotenv import load_dotenv
 import traceback
 import webbrowser
 import threading
-
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- Load Environment Variables ---
@@ -49,7 +50,7 @@ class CellData(db.Model):
     __tablename__ = 'cell_data'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.String(80), nullable=False, index=True)
-    email = db.Column(db.String(120), nullable=True, index=True)  # <-- Add this line
+    email = db.Column(db.String(120), nullable=True, index=True)
     operator = db.Column(db.String(120), nullable=True)
     signal_power = db.Column(db.String(50), nullable=True)
     snr = db.Column(db.String(50), nullable=True)
@@ -75,8 +76,7 @@ class CellData(db.Model):
             'upload_time': self.upload_time.isoformat() if self.upload_time else None
         }
 
-
-# --- New User model for registration ---
+# User model for registration
 class User(db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -87,6 +87,77 @@ class User(db.Model):
 
     def __repr__(self):
         return f'<User ID:{self.id} Name:{self.name} Email:{self.email}>'
+
+# Token model for authentication
+class Token(db.Model):
+    __tablename__ = 'tokens'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    token = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now())
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    is_revoked = db.Column(db.Boolean, default=False)
+
+    # Relationship with User model
+    user = db.relationship('User', backref='tokens')
+
+    def __repr__(self):
+        return f'<Token ID:{self.id} User:{self.user_id} Expires:{self.expires_at}>'
+
+    def is_valid(self):
+        """Check if token is valid (not expired and not revoked)"""
+        return not self.is_revoked and self.expires_at > datetime.now(timezone.utc)
+
+    @classmethod
+    def generate_token(cls, user_id, expiration_days=30):
+        """Generate a new token for a user"""
+        # Generate a secure random token
+        token_value = secrets.token_hex(32)  # 64 characters
+        
+        # Calculate expiration date
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expiration_days)
+        
+        # Create new token
+        new_token = cls(
+            user_id=user_id,
+            token=token_value,
+            expires_at=expires_at
+        )
+        
+        return new_token
+
+# --- Authentication Decorator ---
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        
+        # Get token from Authorization header
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header.split(' ')[1]
+        
+        # If no token found, return error
+        if not token:
+            return jsonify({'status': 'error', 'message': 'Authentication token is missing!'}), 401
+        
+        try:
+            # Find the token in database
+            token_record = Token.query.filter_by(token=token).first()
+            
+            # Check if token exists and is valid
+            if not token_record or not token_record.is_valid():
+                return jsonify({'status': 'error', 'message': 'Invalid or expired token!'}), 401
+            
+            # Store user ID in request context
+            g.current_user_id = token_record.user_id
+            
+            return f(*args, **kwargs)
+        except Exception as e:
+            print(f"❌ Error validating token: {e}")
+            return jsonify({'status': 'error', 'message': 'Token authentication failed'}), 401
+    
+    return decorated
 
 # --- Helper Function for Period-Based Stats ---
 def calculate_stats_for_period(start_dt, end_dt):
@@ -205,59 +276,8 @@ def calculate_stats_for_period(start_dt, end_dt):
     period_stats['network_connectivity'] = network_connectivity
     return period_stats
 
-@app.route('/upload', methods=['POST'])
-def receive_cell_data():
-    data = request.get_json()
-    if not data:
-        return jsonify({'status': 'error', 'message': 'No JSON data received'}), 400
-    print(f"📡 Received Raw Data: {data}")
+# --- Routes ---
 
-    client_timestamp = data.get('clientTimestamp')
-    if not client_timestamp:
-        return jsonify({'status': 'error', 'message': "Missing required field: clientTimestamp"}), 400
-
-    email = data.get('email')
-    user_id = None
-
-    # Check if this is a guest (no email or "null")
-    if email and email != "null":
-        user = User.query.filter_by(email=email).first()
-        if not user:
-            return jsonify({'status': 'error', 'message': f"No user found with email: {email}"}), 404
-        user_id = str(user.id)
-    else:
-        # Guest fallback: use ANDROID_ID or MAC as user_id
-        user_id = data.get('userId') or data.get('macAddress') or "guest"
-        email = None  # Explicitly store null in DB
-
-
-    try:
-        new_data = CellData(
-            user_id=user_id,
-            email=email,  # <-- Save the email in the DB
-            operator=data.get('operator'),
-            signal_power=data.get('signalPower'),
-            snr=data.get('snr'),
-            network_type=data.get('networkType'),
-            frequency_band=data.get('frequencyBand'),
-            cell_id=data.get('cellId'),
-            client_timestamp=data.get('clientTimestamp'),
-            user_ip=data.get('ipAddress'),
-            user_mac=data.get('macAddress'),
-            device_brand=data.get('deviceBrand')
-        )
-        db.session.add(new_data)
-        db.session.commit()
-        print(f"✅ Data stored successfully: ID={new_data.id}, Email={email}, Brand={new_data.device_brand}")
-        return jsonify({'status': 'success', 'message': 'Data received and stored'}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"❌ Error storing data for {email}: {e}")
-        traceback.print_exc()
-        return jsonify({'status': 'error', 'message': 'Internal server error during data storage.'}), 500
-
-# --- New Registration Endpoint ---
 @app.route('/register', methods=['POST'])
 def register_user():
     """
@@ -308,11 +328,18 @@ def login_user():
 
         user = User.query.filter_by(email=email).first()
         if user and check_password_hash(user.password_hash, password):
+            # Generate a token
+            new_token = Token.generate_token(user.id)
+            db.session.add(new_token)
+            db.session.commit()
+            
             return jsonify({
                 "success": True,
                 "message": "Login successful",
                 "name": user.name,
-                "id": str(user.id)
+                "id": str(user.id),
+                "token": new_token.token,
+                "expires_at": new_token.expires_at.isoformat()
             }), 200
         else:
             return jsonify({"success": False, "message": "Invalid credentials"}), 401
@@ -322,7 +349,126 @@ def login_user():
         traceback.print_exc()
         return jsonify({"success": False, "message": "Internal server error"}), 500
 
-# --- Other Endpoints (Web Dashboard and App Stats) ---
+@app.route("/logout", methods=["POST"])
+@token_required
+def logout():
+    try:
+        # Get the token from header
+        auth_header = request.headers.get('Authorization')
+        token = auth_header.split(' ')[1]
+        
+        # Revoke the token
+        token_record = Token.query.filter_by(token=token).first()
+        token_record.is_revoked = True
+        db.session.commit()
+        
+        return jsonify({"success": True, "message": "Logged out successfully"}), 200
+    except Exception as e:
+        print(f"Logout error: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": "Error during logout"}), 500
+
+@app.route('/upload', methods=['POST'])
+def receive_cell_data():
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'No JSON data received'}), 400
+    print(f"📡 Received Raw Data: {data}")
+
+    client_timestamp = data.get('clientTimestamp')
+    if not client_timestamp:
+        return jsonify({'status': 'error', 'message': "Missing required field: clientTimestamp"}), 400
+
+    # --- NEW LOGIC: Try to get user from token, if any ---
+    user_id = None
+    email = None
+
+    auth_header = request.headers.get('Authorization')
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+        token_record = Token.query.filter_by(token=token).first()
+        if token_record and token_record.is_valid():
+            user_id = str(token_record.user_id)
+            user = User.query.get(token_record.user_id)
+            if user:
+                email = user.email
+
+    # If no valid token, mark as guest
+    if not user_id:
+        user_id = "guest"
+        email = "guest@example.com"
+
+    try:
+        new_data = CellData(
+            user_id=user_id,
+            email=email,
+            operator=data.get('operator'),
+            signal_power=data.get('signalPower'),
+            snr=data.get('snr'),
+            network_type=data.get('networkType'),
+            frequency_band=data.get('frequencyBand'),
+            cell_id=data.get('cellId'),
+            client_timestamp=data.get('clientTimestamp'),
+            user_ip=data.get('ipAddress'),
+            user_mac=data.get('macAddress'),
+            device_brand=data.get('deviceBrand')
+        )
+        db.session.add(new_data)
+        db.session.commit()
+        print(f"✅ Data stored successfully: ID={new_data.id}, Email={email}, Brand={new_data.device_brand}")
+        return jsonify({'status': 'success', 'message': 'Data received and stored'}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error storing data for {email}: {e}")
+        traceback.print_exc()
+        return jsonify({'status': 'error', 'message': 'Internal server error during data storage.'}), 500
+
+
+@app.route('/refresh-token', methods=['POST'])
+@token_required
+def refresh_token():
+    try:
+        # Get the current user ID from token context
+        user_id = g.current_user_id
+        
+        # Generate a new token
+        new_token = Token.generate_token(user_id)
+        db.session.add(new_token)
+        
+        # Get the old token and revoke it
+        auth_header = request.headers.get('Authorization')
+        old_token = auth_header.split(' ')[1]
+        token_record = Token.query.filter_by(token=old_token).first()
+        token_record.is_revoked = True
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": "Token refreshed successfully",
+            "token": new_token.token,
+            "expires_at": new_token.expires_at.isoformat()
+        }), 200
+    except Exception as e:
+        print(f"Token refresh error: {e}")
+        traceback.print_exc()
+        return jsonify({"success": False, "message": "Error refreshing token"}), 500
+
+@app.route('/validate-token', methods=['GET'])
+@token_required
+def validate_token():
+    # If we got here, the token is valid (due to @token_required decorator)
+    user_id = g.current_user_id
+    user = User.query.get(user_id)
+    
+    return jsonify({
+        "success": True,
+        "message": "Token is valid",
+        "user_id": str(user_id),
+        "email": user.email,
+        "name": user.name
+    }), 200
 
 @app.route('/')
 def index():
@@ -722,7 +868,6 @@ def get_all_users():
         traceback.print_exc()
         return jsonify({'status': 'error', 'message': f"An error occurred while fetching users: {str(e)}"}), 500
 
-# --- Initialization / Helper ---
 def create_tables():
     """Creates database tables if they don't exist. Use with caution."""
     with app.app_context():
@@ -735,7 +880,7 @@ def create_tables():
             print("            (like renaming sinr->snr or adding device_brand),")
             print("            `db.create_all()` DID NOT automatically apply them.")
             print("            Schema changes require manual SQL or a migration tool.")
-            print("\nREMINDER 2: Ensure 'snr' & 'device_brand' columns exist in your DB!")
+            print("\nREMINDER 2: Ensure 'snr', 'device_brand', and 'tokens' table exist in your DB!")
             print("=" * 60 + "\n")
         except Exception as e:
             print(f"❌ Error creating/checking tables: {e}")
@@ -767,4 +912,3 @@ if __name__ == '__main__':
         browser_timer = threading.Timer(1.5, open_browser)
         browser_timer.start()
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=True)
-    
